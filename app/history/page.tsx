@@ -94,7 +94,7 @@ export default function HistoryPage() {
         <table className="w-full text-center border-collapse bg-gray-800 whitespace-nowrap">
 <thead>
             <tr className="bg-gray-700 text-gray-200">
-              <th className="p-3 border-b border-r border-gray-600 sticky left-0 bg-gray-700 z-10">DATE</th>
+              <th className="p-3 border-b border-r border-gray-600 sticky left-0 bg-gray-700 z-20">DATE</th>
               {/* BIG3 */}
               <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-red-400 font-bold">BENCH</th>
               <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold">SQUAT</th>
@@ -103,7 +103,8 @@ export default function HistoryPage() {
               <th className="p-2 border-b border-gray-600 text-yellow-400 font-bold min-w-[150px]">OTHERS</th>
             </tr>
             <tr className="bg-gray-750 text-xs text-gray-400">
-              <th className="p-1 border-r border-b border-gray-600 sticky left-0 bg-gray-750"></th>
+              {/* ▼ここが修正ポイント！ z-20 を追加 */}
+              <th className="p-1 border-r border-b border-gray-600 sticky left-0 bg-gray-750 z-20"></th>
               
               {/* BENCH Sub-header */}
               <th className="w-12 border-r border-b border-gray-600">kg</th>
