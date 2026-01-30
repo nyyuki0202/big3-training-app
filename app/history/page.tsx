@@ -17,7 +17,6 @@ type DailyLog = {
   bench?: { weight: number; reps: number; e1rm: number };
   squat?: { weight: number; reps: number; e1rm: number };
   deadlift?: { weight: number; reps: number; e1rm: number };
-  // その他の種目を配列で持つように変更
   others: { name: string; weight: number; reps: number }[];
 };
 
@@ -29,6 +28,9 @@ const calculateE1RM = (weight: number, reps: number) => {
 export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // ▼ 追加：全画面モードかどうかを管理するスイッチ
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -49,9 +51,8 @@ export default function HistoryPage() {
           }
 
           const dayEntry = groupedMap.get(dateStr)!;
-          const exercise = log.exercise; // 小文字変換しない
+          const exercise = log.exercise; 
 
-          // BIG3の処理
           if (['bench', 'squat', 'deadlift'].includes(exercise)) {
             const exKey = exercise as 'bench' | 'squat' | 'deadlift';
             const currentE1RM = calculateE1RM(log.weight, log.reps);
@@ -65,7 +66,6 @@ export default function HistoryPage() {
               };
             }
           } else {
-            // 補助種目の処理 (重複チェックせず全部追加するか、最新だけ残すかはお好みで。今回はシンプルに追加)
             dayEntry.others.push({
               name: exercise,
               weight: log.weight,
@@ -85,44 +85,65 @@ export default function HistoryPage() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 flex flex-col items-center">
       
-      <div className="w-full max-w-5xl mb-6 flex justify-between items-center">
-        <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back</Link>
-        <h1 className="text-2xl font-bold">WORKOUT LOG</h1>
-      </div>
+      {/* 通常時のヘッダー（全画面時は隠す） */}
+      {!isFullScreen && (
+        <div className="w-full max-w-5xl mb-6 flex justify-between items-center">
+          <Link href="/" className="text-gray-400 hover:text-white text-sm">
+            ← Back
+          </Link>
+          <h1 className="text-2xl font-bold">WORKOUT LOG</h1>
+        </div>
+      )}
 
-      <div className="w-full max-w-5xl overflow-x-auto rounded-xl shadow-2xl border border-gray-700">
-        <table className="w-full text-center border-collapse bg-gray-800 whitespace-nowrap">
-<thead>
+      {/* ▼ テーブルエリア（ここがボタンで変身する！） ▼ */}
+      <div 
+        className={`transition-all duration-300 ease-in-out border border-gray-700 shadow-2xl
+          ${isFullScreen 
+            ? "fixed inset-0 z-50 bg-gray-900 w-full h-full p-2 overflow-auto" // 全画面モード
+            : "w-full max-w-5xl rounded-xl overflow-x-auto relative" // 通常モード
+          }`}
+      >
+        
+        {/* 全画面切り替えボタン */}
+        <div className="sticky left-0 top-0 w-full flex justify-end p-2 z-30 pointer-events-none">
+          <button 
+            onClick={() => setIsFullScreen(!isFullScreen)}
+            className="pointer-events-auto bg-gray-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold hover:bg-gray-600 active:scale-95 transition-transform flex items-center gap-2 border border-gray-500"
+          >
+            {isFullScreen ? (
+              <>CLOSE ✕</>
+            ) : (
+              <>EXPAND ⤢</>
+            )}
+          </button>
+        </div>
+
+        <table className="w-full text-center border-collapse bg-gray-800 whitespace-nowrap mt-[-40px]">
+          <thead>
             <tr className="bg-gray-700 text-gray-200">
-              <th className="p-3 border-b border-r border-gray-600 sticky left-0 bg-gray-700 z-20">DATE</th>
+              {/* 日付列：スクロールしてもついてくるように sticky 設定 */}
+              <th className="p-3 border-b border-r border-gray-600 sticky left-0 top-0 bg-gray-700 z-20 pt-12">DATE</th>
+              
               {/* BIG3 */}
-              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-red-400 font-bold">BENCH</th>
-              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold">SQUAT</th>
-              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-green-400 font-bold">DEADLIFT</th>
+              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-red-400 font-bold sticky top-0 bg-gray-700 pt-12">BENCH</th>
+              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold sticky top-0 bg-gray-700 pt-12">SQUAT</th>
+              <th colSpan={3} className="p-2 border-b border-r border-gray-600 text-green-400 font-bold sticky top-0 bg-gray-700 pt-12">DEADLIFT</th>
               {/* ASSISTANCE */}
-              <th className="p-2 border-b border-gray-600 text-yellow-400 font-bold min-w-[150px]">OTHERS</th>
+              <th className="p-2 border-b border-gray-600 text-yellow-400 font-bold min-w-[150px] sticky top-0 bg-gray-700 pt-12">OTHERS</th>
             </tr>
             <tr className="bg-gray-750 text-xs text-gray-400">
-              {/* ▼ここが修正ポイント！ z-20 を追加 */}
-              <th className="p-1 border-r border-b border-gray-600 sticky left-0 bg-gray-750 z-20"></th>
+              <th className="p-1 border-r border-b border-gray-600 sticky left-0 top-[50px] bg-gray-750 z-20"></th>
               
-              {/* BENCH Sub-header */}
-              <th className="w-12 border-r border-b border-gray-600">kg</th>
-              <th className="w-8 border-r border-b border-gray-600">rep</th>
-              <th className="w-12 border-r border-b border-gray-600 text-white font-bold bg-gray-700" title="Potential Value">PV</th>
-
-              {/* SQUAT Sub-header */}
-              <th className="w-12 border-r border-b border-gray-600">kg</th>
-              <th className="w-8 border-r border-b border-gray-600">rep</th>
-              <th className="w-12 border-r border-b border-gray-600 text-white font-bold bg-gray-700" title="Potential Value">PV</th>
-
-              {/* DEADLIFT Sub-header */}
-              <th className="w-12 border-r border-b border-gray-600">kg</th>
-              <th className="w-8 border-r border-b border-gray-600">rep</th>
-              <th className="w-12 border-r border-b border-gray-600 text-white font-bold bg-gray-700" title="Potential Value">PV</th>
+              {/* BIG3 Sub-headers */}
+              {[...Array(3)].map((_, i) => (
+                <>
+                  <th className="w-12 border-r border-b border-gray-600 sticky top-[50px] bg-gray-750">kg</th>
+                  <th className="w-8 border-r border-b border-gray-600 sticky top-[50px] bg-gray-750">rep</th>
+                  <th className="w-12 border-r border-b border-gray-600 text-white font-bold bg-gray-700 sticky top-[50px]" title="Potential Value">PV</th>
+                </>
+              ))}
               
-              {/* Others Sub-header */}
-              <th className="border-b border-gray-600 text-left px-2">Memo</th>
+              <th className="border-b border-gray-600 text-left px-2 sticky top-[50px] bg-gray-750">Memo</th>
             </tr>
           </thead>
 
@@ -156,7 +177,7 @@ export default function HistoryPage() {
                   {row.deadlift ? `${row.deadlift.e1rm}` : "-"}
                 </td>
 
-                {/* OTHERS (補助種目をリスト表示) */}
+                {/* OTHERS */}
                 <td className="p-2 text-left text-xs text-gray-300">
                   {row.others.length > 0 ? (
                     <div className="flex flex-col gap-1">
@@ -174,11 +195,13 @@ export default function HistoryPage() {
         </table>
       </div>
       
-      <div className="mt-4 text-gray-500 text-xs text-center">
-        <p className="font-bold mb-1">PV (Potential Value)</p>
-        <p>Weight × (1 + Reps/30)</p>
-        <p className="text-[10px] mt-1 opacity-70">※ 現在のパフォーマンスから算出された理論上の最大強度</p>
-      </div>
+      {!isFullScreen && (
+        <div className="mt-4 text-gray-500 text-xs text-center">
+          <p className="font-bold mb-1">PV (Potential Value)</p>
+          <p>Weight × (1 + Reps/30)</p>
+          <p className="text-[10px] mt-1 opacity-70">※ 現在のパフォーマンスから算出された理論上の最大強度</p>
+        </div>
+      )}
     </main>
   );
 }
