@@ -114,7 +114,8 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-  // ▼ Excel (.xlsx) 出力機能 (幅指定あり)
+
+// ▼ Excel (.xlsx) 出力機能 (ラフ画のレイアウト再現版)
   const executeDownload = (filter: boolean) => {
     let targetData = tableData;
     
@@ -133,87 +134,101 @@ export default function HistoryPage() {
     }
 
     // 1. ヘッダー作成
+    // ラフ画に合わせて "種目名" と "PV" を横に並べる
     const headers = [
       "Date",
-      // Bench 1~3
-      "Bench1_kg", "Bench1_rep", "Bench1_PV",
-      "Bench2_kg", "Bench2_rep", "Bench2_PV",
-      "Bench3_kg", "Bench3_rep", "Bench3_PV",
-      // Squat 1~3
-      "Squat1_kg", "Squat1_rep", "Squat1_PV",
-      "Squat2_kg", "Squat2_rep", "Squat2_PV",
-      "Squat3_kg", "Squat3_rep", "Squat3_PV",
-      // Deadlift 1~3
-      "Dead1_kg", "Dead1_rep", "Dead1_PV",
-      "Dead2_kg", "Dead2_rep", "Dead2_PV",
-      "Dead3_kg", "Dead3_rep", "Dead3_PV",
-      // Others
-      "Others (Memo)"
+      "BENCH PRESS", "PV",
+      "SQUAT", "PV",
+      "DEADLIFT", "PV",
+      "OTHERS (Memo)"
     ];
 
-    // 2. データ行の作成
     const dataRows: (string | number)[][] = [headers];
+    const merges: XLSX.Range[] = []; // セル結合のルールを入れる箱
+
+    let currentRow = 1; // ヘッダーが0行目なので、データは1行目からスタート
 
     targetData.forEach((day) => {
-      const row: (string | number)[] = [];
-      row.push(day.date);
+      // 1日につき「3行」確保する (Top 3セットを表示するため)
+      const row1: (string | number)[] = new Array(8).fill("");
+      const row2: (string | number)[] = new Array(8).fill("");
+      const row3: (string | number)[] = new Array(8).fill("");
+      
+      // ---------------------------------------------------
+      // 1. 日付列 (A列)
+      // ---------------------------------------------------
+      row1[0] = day.date;
+      // ★ここで結合！ (開始行, 0列目) 〜 (終了行, 0列目) をくっつける
+      merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow + 2, c: 0 } });
 
-      // BIG3
-      (['bench', 'squat', 'deadlift'] as const).forEach((type) => {
-        const sets = day[type];
+      // ---------------------------------------------------
+      // 2. BIG3 (Bench, Squat, Deadlift) のセット埋め込み
+      // ---------------------------------------------------
+      // colIndex: Bench=1, Squat=3, Deadlift=5
+      const exercises = [
+        { key: 'bench', col: 1 },
+        { key: 'squat', col: 3 },
+        { key: 'deadlift', col: 5 }
+      ] as const;
+
+      exercises.forEach(({ key, col }) => {
+        const sets = day[key]; // その種目のセット一覧 (最大3つ)
+        const targetRows = [row1, row2, row3];
+
+        // 3行分ループして、データがあれば埋める
         for (let i = 0; i < 3; i++) {
           if (sets[i]) {
-            row.push(sets[i].weight);
-            row.push(sets[i].reps);
-            row.push(sets[i].e1rm);
+            // ラフ画の形式: "77.5 kg 10 rep"
+            const text = `${sets[i].weight} kg  ${sets[i].reps} rep`;
+            const pv = sets[i].e1rm;
+
+            targetRows[i][col] = text;   // 重量・回数
+            targetRows[i][col + 1] = pv; // PV
           } else {
-            row.push(""); row.push(""); row.push("");
+            // セットがない行は空欄 ("-" でもOK)
+            targetRows[i][col] = "";
+            targetRows[i][col + 1] = "";
           }
         }
       });
 
-      // Others (セル内改行を使って見やすく)
+      // ---------------------------------------------------
+      // 3. Others (H列)
+      // ---------------------------------------------------
       if (day.others.length > 0) {
         const othersText = day.others.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join("\n");
-        row.push(othersText);
-      } else {
-        row.push("");
+        row1[7] = othersText;
       }
+      // Othersも縦3行ぶち抜きで結合して見やすくする
+      merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow + 2, c: 7 } });
 
-      dataRows.push(row);
+      // 作った3行をデータに追加
+      dataRows.push(row1, row2, row3);
+      
+      // 次の日付のために行番号を3つ進める
+      currentRow += 3;
     });
 
-    // 3. ワークシートの作成
+    // ---------------------------------------------------
+    // Excelシートの生成設定
+    // ---------------------------------------------------
     const ws = XLSX.utils.aoa_to_sheet(dataRows);
 
-    // 4. ★ここがポイント！列幅の設定 (wch = 文字数)
+    // ★結合ルールを適用
+    ws['!merges'] = merges;
+
+    // 列幅の設定 (wch = 文字数)
     ws['!cols'] = [
-      { wch: 12 }, // Date (少し広め)
-      
-      // Bench (9列) - 数字なので狭くてOK
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-
-      // Squat (9列)
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-
-      // Deadlift (9列)
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-      { wch: 8 }, { wch: 5 }, { wch: 5 },
-
-      // Others (一番右) - めちゃくちゃ広くする！
-      { wch: 50 } 
+      { wch: 12 }, // A: Date
+      { wch: 18 }, { wch: 5 }, // B: Bench, C: PV
+      { wch: 18 }, { wch: 5 }, // D: Squat, E: PV
+      { wch: 18 }, { wch: 5 }, // F: Dead,  G: PV
+      { wch: 40 }  // H: Others
     ];
 
-    // 5. ブック作成と保存
+    // ファイル保存
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Workout_Log");
-    
-    // xlsxファイルとして書き出し
     XLSX.writeFile(wb, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
     
     setShowDownloadModal(false);
