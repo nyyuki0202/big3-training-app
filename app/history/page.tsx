@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
-// 1セットごとのデータ型（IDを追加）
+// 1セットごとのデータ型
 type SetData = {
   id: number;
   weight: number;
@@ -12,7 +12,7 @@ type SetData = {
   e1rm: number;
 };
 
-// 補助種目のデータ型（IDを追加）
+// 補助種目のデータ型
 type OtherData = {
   id: number;
   name: string;
@@ -39,10 +39,8 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ▼ 編集モーダル用の状態管理
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number} | null>(null);
 
-  // データ取得関数（再利用するために外に出しました）
   const fetchLogs = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -89,11 +87,10 @@ export default function HistoryPage() {
         }
       });
 
-      // 並び替え処理
       const processedData = Array.from(groupedMap.values()).map(entry => {
         (['bench', 'squat', 'deadlift'] as const).forEach(key => {
-          entry[key].sort((a, b) => b.e1rm - a.e1rm); // 強度高い順
-          entry[key] = entry[key].slice(0, 3); // Top 3
+          entry[key].sort((a, b) => b.e1rm - a.e1rm);
+          entry[key] = entry[key].slice(0, 3);
         });
         return entry;
       });
@@ -103,12 +100,10 @@ export default function HistoryPage() {
     setLoading(false);
   };
 
-  // 初回ロード
   useEffect(() => {
     fetchLogs();
   }, []);
 
-  // 削除処理
   const handleDelete = async () => {
     if (!editingItem) return;
     if (!confirm("本当にこの記録を削除しますか？")) return;
@@ -117,12 +112,11 @@ export default function HistoryPage() {
     if (error) {
       alert("削除に失敗しました");
     } else {
-      setEditingItem(null); // モーダル閉じる
-      fetchLogs(); // データを再取得して画面更新
+      setEditingItem(null);
+      fetchLogs();
     }
   };
 
-  // 更新処理
   const handleUpdate = async () => {
     if (!editingItem) return;
 
@@ -134,8 +128,8 @@ export default function HistoryPage() {
     if (error) {
       alert("更新に失敗しました");
     } else {
-      setEditingItem(null); // モーダル閉じる
-      fetchLogs(); // データを再取得して画面更新
+      setEditingItem(null);
+      fetchLogs();
     }
   };
 
@@ -143,7 +137,7 @@ export default function HistoryPage() {
     <main className="min-h-screen bg-gray-900 text-white relative">
       
       {/* ==============================================
-          【編集モーダル】 (editingItemがある時だけ表示)
+          【編集モーダル】
          ============================================== */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -153,45 +147,62 @@ export default function HistoryPage() {
             </h3>
             
             <div className="space-y-4 mb-6">
+              {/* 重量変更エリア */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">WEIGHT (kg)</label>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight - 1})} className="w-10 h-10 bg-gray-700 rounded-full font-bold">-</button>
+                  {/* ▼ -2.5kg ボタン ▼ */}
+                  <button 
+                    onClick={() => setEditingItem({...editingItem, weight: editingItem.weight - 2.5})} 
+                    className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600 active:scale-95 transition-transform"
+                  >
+                    -2.5
+                  </button>
+                  
                   <input 
                     type="number" 
+                    step="0.25" // 小数入力対応
                     value={editingItem.weight}
                     onChange={(e) => setEditingItem({...editingItem, weight: Number(e.target.value)})}
-                    className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg"
+                    className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none"
                   />
-                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight + 1})} className="w-10 h-10 bg-gray-700 rounded-full font-bold">+</button>
+                  
+                  {/* ▼ +2.5kg ボタン ▼ */}
+                  <button 
+                    onClick={() => setEditingItem({...editingItem, weight: editingItem.weight + 2.5})} 
+                    className="w-12 h-12 bg-blue-600 rounded-full font-bold hover:bg-blue-500 active:scale-95 transition-transform"
+                  >
+                    +2.5
+                  </button>
                 </div>
               </div>
 
+              {/* 回数変更エリア */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">REPS</label>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingItem({...editingItem, reps: Math.max(0, editingItem.reps - 1)})} className="w-10 h-10 bg-gray-700 rounded-full font-bold">-</button>
+                  <button onClick={() => setEditingItem({...editingItem, reps: Math.max(0, editingItem.reps - 1)})} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600 active:scale-95 transition-transform">-</button>
                   <input 
                     type="number" 
                     value={editingItem.reps}
                     onChange={(e) => setEditingItem({...editingItem, reps: Number(e.target.value)})}
-                    className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg"
+                    className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none"
                   />
-                  <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-10 h-10 bg-gray-700 rounded-full font-bold">+</button>
+                  <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-12 h-12 bg-blue-600 rounded-full font-bold hover:bg-blue-500 active:scale-95 transition-transform">+</button>
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <button onClick={handleDelete} className="flex-1 py-3 bg-red-900/50 text-red-400 border border-red-800 rounded-xl font-bold hover:bg-red-900">
+              <button onClick={handleDelete} className="flex-1 py-3 bg-red-900/50 text-red-400 border border-red-800 rounded-xl font-bold hover:bg-red-900 transition-colors">
                 DELETE 🗑️
               </button>
-              <button onClick={handleUpdate} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50">
+              <button onClick={handleUpdate} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50 transition-colors">
                 UPDATE 💾
               </button>
             </div>
             
-            <button onClick={() => setEditingItem(null)} className="w-full mt-4 text-gray-500 text-sm underline">
+            <button onClick={() => setEditingItem(null)} className="w-full mt-4 text-gray-500 text-sm underline hover:text-white">
               Cancel
             </button>
           </div>
@@ -200,7 +211,7 @@ export default function HistoryPage() {
 
 
       {/* ==============================================
-          【縦画面用】 (クリックで編集を開く)
+          【縦画面用】 (Portrait View)
          ============================================== */}
       <div className="block landscape:hidden p-4 pb-20">
         <div className="flex justify-between items-center mb-6">
@@ -301,7 +312,7 @@ export default function HistoryPage() {
 
 
       {/* ==============================================
-          【横画面用】 テーブル表示 (ここもクリック可能に！)
+          【横画面用】 (Landscape View)
          ============================================== */}
       <div className="hidden landscape:block w-full h-screen overflow-auto bg-gray-800 relative">
         <table className="w-full text-center border-collapse whitespace-nowrap">
@@ -324,7 +335,6 @@ export default function HistoryPage() {
                   {row.date}
                 </td>
 
-                {/* BENCH Cell */}
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.bench.map((set) => (
@@ -340,7 +350,6 @@ export default function HistoryPage() {
                   </div>
                 </td>
 
-                {/* SQUAT Cell */}
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.squat.map((set) => (
@@ -356,7 +365,6 @@ export default function HistoryPage() {
                   </div>
                 </td>
 
-                {/* DEADLIFT Cell */}
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.deadlift.map((set) => (
@@ -372,7 +380,6 @@ export default function HistoryPage() {
                   </div>
                 </td>
 
-                {/* OTHERS Cell */}
                 <td className="p-2 text-left text-xs text-gray-300 min-w-[200px] align-middle">
                   <div className="flex flex-wrap gap-1">
                     {row.others.map((set) => (
