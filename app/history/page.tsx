@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import * as XLSX from "xlsx"; // ★ 追加：Excelライブラリ
 
 // 1セットごとのデータ型
 type SetData = {
@@ -40,7 +41,7 @@ export default function HistoryPage() {
   
   // モーダル類の管理
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number} | null>(null);
-  const [showDownloadModal, setShowDownloadModal] = useState(false); // ダウンロード画面の開閉
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   
   // 期間指定用のState
   const [startDate, setStartDate] = useState("");
@@ -59,7 +60,6 @@ export default function HistoryPage() {
       const groupedMap = new Map<string, DailyLog>();
 
       data.forEach((log) => {
-        // 日付を YYYY/MM/DD 形式に統一
         const dateObj = new Date(log.created_at);
         const y = dateObj.getFullYear();
         const m = (`00${dateObj.getMonth()+1}`).slice(-2);
@@ -114,14 +114,12 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-  // ▼ CSVダウンロード実行関数
+  // ▼ Excel (.xlsx) 出力機能 (幅指定あり)
   const executeDownload = (filter: boolean) => {
-    // 1. フィルタリング処理
     let targetData = tableData;
     
     if (filter) {
       targetData = tableData.filter(day => {
-        // "YYYY/MM/DD" を "YYYY-MM-DD" に変換して比較
         const rowDate = day.date.replaceAll('/', '-'); 
         const start = startDate || "0000-01-01";
         const end = endDate || "9999-12-31";
@@ -134,31 +132,93 @@ export default function HistoryPage() {
       return;
     }
 
-    // 2. CSV生成
-    const header = ["Date", "Exercise", "Weight(kg)", "Reps", "E1RM", "Type"];
-    const rows: string[] = [];
+    // 1. ヘッダー作成
+    const headers = [
+      "Date",
+      // Bench 1~3
+      "Bench1_kg", "Bench1_rep", "Bench1_PV",
+      "Bench2_kg", "Bench2_rep", "Bench2_PV",
+      "Bench3_kg", "Bench3_rep", "Bench3_PV",
+      // Squat 1~3
+      "Squat1_kg", "Squat1_rep", "Squat1_PV",
+      "Squat2_kg", "Squat2_rep", "Squat2_PV",
+      "Squat3_kg", "Squat3_rep", "Squat3_PV",
+      // Deadlift 1~3
+      "Dead1_kg", "Dead1_rep", "Dead1_PV",
+      "Dead2_kg", "Dead2_rep", "Dead2_PV",
+      "Dead3_kg", "Dead3_rep", "Dead3_PV",
+      // Others
+      "Others (Memo)"
+    ];
+
+    // 2. データ行の作成
+    const dataRows: (string | number)[][] = [headers];
 
     targetData.forEach((day) => {
-      day.bench.forEach(set => rows.push(`${day.date},BENCH PRESS,${set.weight},${set.reps},${set.e1rm},BIG3`));
-      day.squat.forEach(set => rows.push(`${day.date},SQUAT,${set.weight},${set.reps},${set.e1rm},BIG3`));
-      day.deadlift.forEach(set => rows.push(`${day.date},DEADLIFT,${set.weight},${set.reps},${set.e1rm},BIG3`));
-      day.others.forEach(set => rows.push(`${day.date},${set.name},${set.weight},${set.reps},-,Assistance`));
+      const row: (string | number)[] = [];
+      row.push(day.date);
+
+      // BIG3
+      (['bench', 'squat', 'deadlift'] as const).forEach((type) => {
+        const sets = day[type];
+        for (let i = 0; i < 3; i++) {
+          if (sets[i]) {
+            row.push(sets[i].weight);
+            row.push(sets[i].reps);
+            row.push(sets[i].e1rm);
+          } else {
+            row.push(""); row.push(""); row.push("");
+          }
+        }
+      });
+
+      // Others (セル内改行を使って見やすく)
+      if (day.others.length > 0) {
+        const othersText = day.others.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join("\n");
+        row.push(othersText);
+      } else {
+        row.push("");
+      }
+
+      dataRows.push(row);
     });
 
-    const csvContent = "\uFEFF" + [header.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `workout_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 3. ワークシートの作成
+    const ws = XLSX.utils.aoa_to_sheet(dataRows);
+
+    // 4. ★ここがポイント！列幅の設定 (wch = 文字数)
+    ws['!cols'] = [
+      { wch: 12 }, // Date (少し広め)
+      
+      // Bench (9列) - 数字なので狭くてOK
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+
+      // Squat (9列)
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+
+      // Deadlift (9列)
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+      { wch: 8 }, { wch: 5 }, { wch: 5 },
+
+      // Others (一番右) - めちゃくちゃ広くする！
+      { wch: 50 } 
+    ];
+
+    // 5. ブック作成と保存
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Workout_Log");
     
-    setShowDownloadModal(false); // モーダル閉じる
+    // xlsxファイルとして書き出し
+    XLSX.writeFile(wb, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    
+    setShowDownloadModal(false);
   };
 
-  // 削除・更新処理
   const handleDelete = async () => {
     if (!editingItem) return;
     if (!confirm("本当にこの記録を削除しますか？")) return;
@@ -175,35 +235,23 @@ export default function HistoryPage() {
   return (
     <main className="min-h-screen bg-gray-900 text-white relative">
       
-      {/* ==============================================
-          【ダウンロード設定モーダル】
-         ============================================== */}
+      {/* ダウンロード設定モーダル */}
       {showDownloadModal && (
         <div className="fixed inset-0 z-[110] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl animate-in fade-in zoom-in duration-200">
             <h3 className="text-xl font-bold mb-4 text-center border-b border-gray-700 pb-2">
-              DOWNLOAD CSV 📊
+              DOWNLOAD EXCEL 📊
             </h3>
             
             <div className="space-y-4 mb-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">Start Date</label>
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-gray-900 text-white p-2 rounded-lg border border-gray-700 focus:border-green-500"
-                  />
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded-lg border border-gray-700 focus:border-green-500" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">End Date</label>
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-gray-900 text-white p-2 rounded-lg border border-gray-700 focus:border-green-500"
-                  />
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded-lg border border-gray-700 focus:border-green-500" />
                 </div>
               </div>
 
@@ -229,9 +277,7 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* ==============================================
-          【編集モーダル】
-         ============================================== */}
+      {/* 編集モーダル */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl animate-in fade-in zoom-in duration-200">
@@ -263,13 +309,13 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* 縦画面用 (Portrait View) */}
+      {/* 縦画面用 */}
       <div className="block landscape:hidden p-4 pb-20">
         <div className="flex justify-between items-center mb-6">
           <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back</Link>
           <div className="flex items-center gap-4">
             <button onClick={() => setShowDownloadModal(true)} className="text-green-400 hover:text-green-300 text-sm font-bold flex items-center gap-1 border border-green-800 bg-green-900/30 px-3 py-1 rounded-lg">
-              CSV ⬇️
+              XLSX ⬇️
             </button>
             <h1 className="text-2xl font-bold">HISTORY</h1>
           </div>
@@ -297,7 +343,6 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 )}
-                {/* (Squat/Deadlift/Others 省略 - 同じロジックで表示されます) */}
                 {day.squat.length > 0 && (
                   <div className="mb-3">
                     <p className="text-blue-400 font-bold text-sm mb-1">SQUAT</p>
@@ -343,15 +388,15 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* 横画面用 (Landscape View) */}
+      {/* 横画面用 */}
       <div className="hidden landscape:block w-full h-screen overflow-auto bg-gray-800 relative">
         <table className="w-full text-center border-collapse whitespace-nowrap">
           <thead>
             <tr className="bg-gray-700 text-gray-200">
               <th className="p-3 border-b border-r border-gray-600 sticky left-0 top-0 bg-gray-700 z-50 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.5)] flex items-center justify-between gap-2">
                 <span>DATE</span>
-                <button onClick={() => setShowDownloadModal(true)} title="Download CSV" className="bg-green-700 hover:bg-green-600 text-white text-[10px] p-1 rounded">
-                  ⬇️CSV
+                <button onClick={() => setShowDownloadModal(true)} title="Download Excel" className="bg-green-700 hover:bg-green-600 text-white text-[10px] p-1 rounded">
+                  ⬇️XLSX
                 </button>
               </th>
               <th className="p-2 border-b border-r border-gray-600 text-red-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">BENCH (Top 3)</th>
