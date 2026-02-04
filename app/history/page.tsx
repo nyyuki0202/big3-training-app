@@ -297,32 +297,59 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* 編集モーダル */}
+{/* 編集モーダル */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-800 w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl animate-in fade-in zoom-in duration-200">
+          {/* ▼ 修正1: max-w-sm を max-w-md にして横幅に余裕を持たせる */}
+          <div className="bg-gray-800 w-full max-w-md p-6 rounded-2xl border border-gray-600 shadow-2xl animate-in fade-in zoom-in duration-200">
             <h3 className="text-xl font-bold mb-4 text-center border-b border-gray-700 pb-2">EDIT RECORD ✏️</h3>
             <div className="space-y-4 mb-6">
+              
+              {/* 重量 (Weight) */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">WEIGHT (kg)</label>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight - 2.5})} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-2.5</button>
-                  <input type="number" step="0.25" value={editingItem.weight} onChange={(e) => setEditingItem({...editingItem, weight: Number(e.target.value)})} className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700" />
-                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight + 2.5})} className="w-12 h-12 bg-blue-600 rounded-full font-bold hover:bg-blue-500">+2.5</button>
+                  {/* ▼ 修正2: shrink-0 を追加（絶対に潰れないようにする） */}
+                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight - 2.5})} className="w-12 h-12 shrink-0 bg-gray-700 rounded-full font-bold hover:bg-gray-600 active:scale-95 transition-transform">-2.5</button>
+                  
+                  {/* ▼ 修正3: min-w-0 を追加（必要なら縮むようにする） */}
+                  <input 
+                    type="number" 
+                    step="0.25" 
+                    value={editingItem.weight} 
+                    onChange={(e) => setEditingItem({...editingItem, weight: Number(e.target.value)})} 
+                    className="flex-1 min-w-0 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none" 
+                  />
+                  
+                  {/* ▼ 修正4: shrink-0 を追加 */}
+                  <button onClick={() => setEditingItem({...editingItem, weight: editingItem.weight + 2.5})} className="w-12 h-12 shrink-0 bg-blue-600 rounded-full font-bold hover:bg-blue-500 active:scale-95 transition-transform">+2.5</button>
                 </div>
               </div>
+
+              {/* 回数 (Reps) */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">REPS</label>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setEditingItem({...editingItem, reps: Math.max(0, editingItem.reps - 1)})} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-</button>
-                  <input type="number" value={editingItem.reps} onChange={(e) => setEditingItem({...editingItem, reps: Number(e.target.value)})} className="flex-1 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700" />
-                  <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-12 h-12 bg-blue-600 rounded-full font-bold hover:bg-blue-500">+</button>
+                  {/* ▼ 修正5: shrink-0 を追加 */}
+                  <button onClick={() => setEditingItem({...editingItem, reps: Math.max(0, editingItem.reps - 1)})} className="w-12 h-12 shrink-0 bg-gray-700 rounded-full font-bold hover:bg-gray-600 active:scale-95 transition-transform">-</button>
+                  
+                  {/* ▼ 修正6: min-w-0 を追加 */}
+                  <input 
+                    type="number" 
+                    value={editingItem.reps} 
+                    onChange={(e) => setEditingItem({...editingItem, reps: Number(e.target.value)})} 
+                    className="flex-1 min-w-0 bg-gray-900 text-white text-center text-2xl font-bold p-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:outline-none" 
+                  />
+                  
+                  {/* ▼ 修正7: shrink-0 を追加 */}
+                  <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-12 h-12 shrink-0 bg-blue-600 rounded-full font-bold hover:bg-blue-500 active:scale-95 transition-transform">+</button>
                 </div>
               </div>
             </div>
+
             <div className="flex gap-3">
-              <button onClick={handleDelete} className="flex-1 py-3 bg-red-900/50 text-red-400 border border-red-800 rounded-xl font-bold hover:bg-red-900">DELETE 🗑️</button>
-              <button onClick={handleUpdate} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50">UPDATE 💾</button>
+              <button onClick={handleDelete} className="flex-1 py-3 bg-red-900/50 text-red-400 border border-red-800 rounded-xl font-bold hover:bg-red-900 transition-colors">DELETE 🗑️</button>
+              <button onClick={handleUpdate} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50 transition-colors">UPDATE 💾</button>
             </div>
             <button onClick={() => setEditingItem(null)} className="w-full mt-4 text-gray-500 text-sm underline hover:text-white">Cancel</button>
           </div>
