@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import * as XLSX from "xlsx"; // ★ 追加：Excelライブラリ
+import ExcelJS from "exceljs"; // ★ 新しい主役
+import { saveAs } from "file-saver"; // ★ ダウンロード保存用
 
 // 1セットごとのデータ型
 type SetData = {
@@ -39,11 +40,9 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // モーダル類の管理
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number} | null>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   
-  // 期間指定用のState
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -114,9 +113,8 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-
-// ▼ Excel (.xlsx) 出力機能 (ラフ画のレイアウト再現版)
-  const executeDownload = (filter: boolean) => {
+  // ▼ 【最強版】Excel出力機能 (exceljs使用)
+  const executeDownload = async (filter: boolean) => {
     let targetData = tableData;
     
     if (filter) {
@@ -133,107 +131,130 @@ export default function HistoryPage() {
       return;
     }
 
-    // 1. ヘッダー作成
-    // ラフ画に合わせて "種目名" と "PV" を横に並べる
-    const headers = [
-      "Date",
-      "BENCH PRESS", "PV",
-      "SQUAT", "PV",
-      "DEADLIFT", "PV",
-      "OTHERS (Memo)"
+    // 1. ワークブックとシートを作成
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Workout Log');
+
+    // 2. 列の定義 (幅を指定)
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 14 },
+      { header: 'BENCH PRESS', key: 'bench', width: 22 },
+      { header: 'PV', key: 'bench_pv', width: 6 },
+      { header: 'SQUAT', key: 'squat', width: 22 },
+      { header: 'PV', key: 'squat_pv', width: 6 },
+      { header: 'DEADLIFT', key: 'deadlift', width: 22 },
+      { header: 'PV', key: 'deadlift_pv', width: 6 },
+      { header: 'OTHERS (Memo)', key: 'others', width: 45 },
     ];
 
-    const dataRows: (string | number)[][] = [headers];
-    const merges: XLSX.Range[] = []; // セル結合のルールを入れる箱
+    // 3. ヘッダーのデザイン (太字・中央揃え・背景色グレー・罫線)
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // 白文字
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4B5563' } // グレー背景
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 25;
 
-    let currentRow = 1; // ヘッダーが0行目なので、データは1行目からスタート
+    // 4. データ行の追加
+    let currentRowIdx = 2; // 1行目はヘッダーなので2行目から
 
     targetData.forEach((day) => {
-      // 1日につき「3行」確保する (Top 3セットを表示するため)
-      const row1: (string | number)[] = new Array(8).fill("");
-      const row2: (string | number)[] = new Array(8).fill("");
-      const row3: (string | number)[] = new Array(8).fill("");
+      // 1日につき3行追加
+      const startRow = currentRowIdx;
       
-      // ---------------------------------------------------
-      // 1. 日付列 (A列)
-      // ---------------------------------------------------
-      row1[0] = day.date;
-      // ★ここで結合！ (開始行, 0列目) 〜 (終了行, 0列目) をくっつける
-      merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow + 2, c: 0 } });
+      // 3行分の空データを作成
+      for (let i = 0; i < 3; i++) {
+        worksheet.addRow(['', '', '', '', '', '', '', '']);
+      }
 
-      // ---------------------------------------------------
-      // 2. BIG3 (Bench, Squat, Deadlift) のセット埋め込み
-      // ---------------------------------------------------
-      // colIndex: Bench=1, Squat=3, Deadlift=5
+      // --- データの埋め込み ---
+      
+      // A列: 日付
+      const dateCell = worksheet.getCell(`A${startRow}`);
+      dateCell.value = day.date;
+      
+      // H列: Others
+      const othersCell = worksheet.getCell(`H${startRow}`);
+      if (day.others.length > 0) {
+        othersCell.value = day.others.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join('\n');
+      } else {
+        othersCell.value = "-";
+      }
+
+      // BIG3 (Bench:B, Squat:D, Dead:F)
       const exercises = [
-        { key: 'bench', col: 1 },
-        { key: 'squat', col: 3 },
-        { key: 'deadlift', col: 5 }
+        { key: 'bench', colLetter: 'B', pvCol: 'C' },
+        { key: 'squat', colLetter: 'D', pvCol: 'E' },
+        { key: 'deadlift', colLetter: 'F', pvCol: 'G' }
       ] as const;
 
-      exercises.forEach(({ key, col }) => {
-        const sets = day[key]; // その種目のセット一覧 (最大3つ)
-        const targetRows = [row1, row2, row3];
-
-        // 3行分ループして、データがあれば埋める
+      exercises.forEach(({ key, colLetter, pvCol }) => {
+        const sets = day[key];
         for (let i = 0; i < 3; i++) {
-          if (sets[i]) {
-            // ラフ画の形式: "77.5 kg 10 rep"
-            const text = `${sets[i].weight} kg  ${sets[i].reps} rep`;
-            const pv = sets[i].e1rm;
+          const rowNum = startRow + i;
+          const mainCell = worksheet.getCell(`${colLetter}${rowNum}`);
+          const pvCell = worksheet.getCell(`${pvCol}${rowNum}`);
 
-            targetRows[i][col] = text;   // 重量・回数
-            targetRows[i][col + 1] = pv; // PV
+          if (sets[i]) {
+            mainCell.value = `${sets[i].weight} kg  ${sets[i].reps} rep`;
+            pvCell.value = sets[i].e1rm;
+            
+            // PVだけ太字にして強調
+            pvCell.font = { bold: true };
           } else {
-            // セットがない行は空欄 ("-" でもOK)
-            targetRows[i][col] = "";
-            targetRows[i][col + 1] = "";
+            mainCell.value = "-";
+            pvCell.value = "-";
+            
+            // ハイフンは薄いグレーにして目立たなくする
+            mainCell.font = { color: { argb: 'FFAAAAAA' } };
+            pvCell.font = { color: { argb: 'FFAAAAAA' } };
           }
+          
+          // 中央揃え
+          mainCell.alignment = { vertical: 'middle', horizontal: 'center' };
+          pvCell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
       });
 
-      // ---------------------------------------------------
-      // 3. Others (H列)
-      // ---------------------------------------------------
-      if (day.others.length > 0) {
-        const othersText = day.others.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join("\n");
-        row1[7] = othersText;
-      }
-      // Othersも縦3行ぶち抜きで結合して見やすくする
-      merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow + 2, c: 7 } });
-
-      // 作った3行をデータに追加
-      dataRows.push(row1, row2, row3);
+      // --- 結合と配置調整 (これがやりたかった！) ---
       
-      // 次の日付のために行番号を3つ進める
-      currentRow += 3;
+      // 日付: 3行結合 & 上揃え & 中央
+      worksheet.mergeCells(`A${startRow}:A${startRow + 2}`);
+      dateCell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
+      dateCell.font = { bold: true }; // 日付は太字
+
+      // Others: 3行結合 & 上揃え & 左寄せ & 折り返し
+      worksheet.mergeCells(`H${startRow}:H${startRow + 2}`);
+      othersCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+
+      // 次の日へ
+      currentRowIdx += 3;
     });
 
-    // ---------------------------------------------------
-    // Excelシートの生成設定
-    // ---------------------------------------------------
-    const ws = XLSX.utils.aoa_to_sheet(dataRows);
+    // 5. 罫線を引く (全セルに適用)
+    worksheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
 
-    // ★結合ルールを適用
-    ws['!merges'] = merges;
-
-    // 列幅の設定 (wch = 文字数)
-    ws['!cols'] = [
-      { wch: 12 }, // A: Date
-      { wch: 18 }, { wch: 5 }, // B: Bench, C: PV
-      { wch: 18 }, { wch: 5 }, // D: Squat, E: PV
-      { wch: 18 }, { wch: 5 }, // F: Dead,  G: PV
-      { wch: 40 }  // H: Others
-    ];
-
-    // ファイル保存
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Workout_Log");
-    XLSX.writeFile(wb, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    // 6. 書き出し
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
     
     setShowDownloadModal(false);
   };
 
+  // 削除・更新処理
   const handleDelete = async () => {
     if (!editingItem) return;
     if (!confirm("本当にこの記録を削除しますか？")) return;
