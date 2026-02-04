@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import ExcelJS from "exceljs"; // ★ 新しい主役
-import { saveAs } from "file-saver"; // ★ ダウンロード保存用
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 
 // 1セットごとのデータ型
 type SetData = {
@@ -113,7 +113,7 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-  // ▼ 【最強版】Excel出力機能 (exceljs使用)
+  // ▼ Excel出力機能
   const executeDownload = async (filter: boolean) => {
     let targetData = tableData;
     
@@ -131,11 +131,10 @@ export default function HistoryPage() {
       return;
     }
 
-    // 1. ワークブックとシートを作成
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Workout Log');
 
-    // 2. 列の定義 (幅を指定)
+    // 列定義
     worksheet.columns = [
       { header: 'Date', key: 'date', width: 14 },
       { header: 'BENCH PRESS', key: 'bench', width: 22 },
@@ -147,36 +146,35 @@ export default function HistoryPage() {
       { header: 'OTHERS (Memo)', key: 'others', width: 45 },
     ];
 
-    // 3. ヘッダーのデザイン (太字・中央揃え・背景色グレー・罫線)
+    // ▼▼▼ 修正箇所：ヘッダーのデザイン（A列〜H列のみ適用） ▼▼▼
     const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // 白文字
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF4B5563' } // グレー背景
-    };
-    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-    headerRow.height = 25;
+    headerRow.height = 25; // 高さは行全体でOK
 
-    // 4. データ行の追加
-    let currentRowIdx = 2; // 1行目はヘッダーなので2行目から
+    // 1列目(A)から8列目(H)までループしてスタイル適用
+    for (let i = 1; i <= 8; i++) {
+      const cell = worksheet.getCell(1, i);
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; // 白文字
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4B5563' } // グレー背景
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    }
+    // ▲▲▲ 修正ここまで ▲▲▲
+
+    let currentRowIdx = 2; 
 
     targetData.forEach((day) => {
-      // 1日につき3行追加
       const startRow = currentRowIdx;
       
-      // 3行分の空データを作成
       for (let i = 0; i < 3; i++) {
         worksheet.addRow(['', '', '', '', '', '', '', '']);
       }
 
-      // --- データの埋め込み ---
-      
-      // A列: 日付
       const dateCell = worksheet.getCell(`A${startRow}`);
       dateCell.value = day.date;
       
-      // H列: Others
       const othersCell = worksheet.getCell(`H${startRow}`);
       if (day.others.length > 0) {
         othersCell.value = day.others.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join('\n');
@@ -184,7 +182,6 @@ export default function HistoryPage() {
         othersCell.value = "-";
       }
 
-      // BIG3 (Bench:B, Squat:D, Dead:F)
       const exercises = [
         { key: 'bench', colLetter: 'B', pvCol: 'C' },
         { key: 'squat', colLetter: 'D', pvCol: 'E' },
@@ -201,40 +198,29 @@ export default function HistoryPage() {
           if (sets[i]) {
             mainCell.value = `${sets[i].weight} kg  ${sets[i].reps} rep`;
             pvCell.value = sets[i].e1rm;
-            
-            // PVだけ太字にして強調
             pvCell.font = { bold: true };
           } else {
             mainCell.value = "-";
             pvCell.value = "-";
-            
-            // ハイフンは薄いグレーにして目立たなくする
             mainCell.font = { color: { argb: 'FFAAAAAA' } };
             pvCell.font = { color: { argb: 'FFAAAAAA' } };
           }
           
-          // 中央揃え
           mainCell.alignment = { vertical: 'middle', horizontal: 'center' };
           pvCell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
       });
 
-      // --- 結合と配置調整 (これがやりたかった！) ---
-      
-      // 日付: 3行結合 & 上揃え & 中央
       worksheet.mergeCells(`A${startRow}:A${startRow + 2}`);
       dateCell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
-      dateCell.font = { bold: true }; // 日付は太字
+      dateCell.font = { bold: true };
 
-      // Others: 3行結合 & 上揃え & 左寄せ & 折り返し
       worksheet.mergeCells(`H${startRow}:H${startRow + 2}`);
       othersCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
 
-      // 次の日へ
       currentRowIdx += 3;
     });
 
-    // 5. 罫線を引く (全セルに適用)
     worksheet.eachRow((row) => {
       row.eachCell((cell) => {
         cell.border = {
@@ -246,7 +232,6 @@ export default function HistoryPage() {
       });
     });
 
-    // 6. 書き出し
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -254,7 +239,6 @@ export default function HistoryPage() {
     setShowDownloadModal(false);
   };
 
-  // 削除・更新処理
   const handleDelete = async () => {
     if (!editingItem) return;
     if (!confirm("本当にこの記録を削除しますか？")) return;
