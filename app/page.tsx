@@ -18,33 +18,52 @@ export default function Home() {
    * 起動時の「一回限りの取得」と、その後の「状態変化」の両方をカバー。
    */
   useEffect(() => {
-    // A. 【初期化】現在のセッションを直接確認しに行く
-    const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // セッションがあればロード解除して表示
-        setLoading(false); 
-      } else {
-        // セッションがなければ即座にログイン画面へ
-        router.push("/login");
-      }
-    };
+      let mounted = true;
 
-    initializeAuth();
+      const checkAuth = async () => {
+        // 1. まず現在のセッションを確認
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
 
-    // B. 【監視】認証状態の変化（ログイン/ログアウト）をリアルタイムで追跡
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        setLoading(false);
-      } else if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) {
-        // ログアウト時、またはセッション消失時にログイン画面へ飛ばす
-        router.push("/login");
-      }
-    });
+        if (session) {
+          // セッションがあれば即座に表示
+          setLoading(false);
+        } else {
+          /**
+           * 💡 ポイント：ここで即座に router.push しない！
+           * Google認証直後は getSession が一瞬 null を返すことがあるため、
+           * 少し待って onAuthStateChange のイベントに判断を委ねる。
+           */
+          const timeout = setTimeout(() => {
+            if (loading && mounted) {
+              router.push("/login");
+            }
+          }, 1500); // 1.5秒の猶予（グレースタイム）を与える
+          return () => clearTimeout(timeout);
+        }
+      };
 
-    // クリーンアップ：ページを離れる時に監視を止めてメモリを守る
-    return () => subscription.unsubscribe();
-  }, [router]);
+      // 2. 認証状態の変化を監視
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!mounted) return;
+
+        if (session) {
+          // ログイン（SIGNED_INやINITIAL_SESSION）が確認できれば表示
+          setLoading(false);
+        } else if (event === "SIGNED_OUT") {
+          // 明示的にログアウトした時だけ飛ばす
+          router.push("/login");
+        }
+      });
+
+      checkAuth();
+
+      return () => {
+        mounted = false;
+        subscription.unsubscribe();
+      };
+    }, [router, loading]);
 
   /**
    * 2. ログアウト処理
