@@ -21,19 +21,17 @@ export default function Home() {
    * セッションがない場合は /login へ強制送還する。
    */
   useEffect(() => {
-    const checkUser = async () => {
-      // getSession() で現在のセッション情報を取得
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        // セッションがない＝未ログイン。ログイン画面へ飛ばす
-        router.push("/login");
-      } else {
-        // ログイン済みなら、コンテンツの表示を許可する
-        setLoading(false);
+    // 1. まず現在のセッションを確認
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        setLoading(false); // ログインを確認できたらロード終了
+      } else if (event === "SIGNED_OUT" || !session) {
+        router.push("/login"); // ログアウト時や未ログイン時はログインへ
       }
-    };
-    checkUser();
+    });
+
+    // コンポーネントが消える時に監視を止める（メモリリーク防止）
+    return () => subscription.unsubscribe();
   }, [router]);
 
   /**
