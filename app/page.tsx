@@ -6,46 +6,57 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 /**
- * BIG3 LOG APP - TOP PAGE
- * * 未来の自分へ：
- * このページは「認証済みユーザー」だけがアクセスできる聖域だ。
- * ログイン状態のチェック、各トレーニングへの導線、セッション破棄を担当している。
+ * BIG3 LOG APP - TOP PAGE (Final Robust Version)
+ * 2027-SOTSU ENGINEER EDITION
  */
 export default function Home() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true); // セッション確認中のチラつき防止フラグ
+  const [loading, setLoading] = useState(true); // ロード状態の管理
 
   /**
-   * 1. ログインチェック (Authentication Guard)
-   * ページが読み込まれた瞬間、Supabaseに「今誰かログインしてる？」と聞く。
-   * セッションがない場合は /login へ強制送還する。
+   * 1. ログインチェック (Initial Fetch + Real-time Listener)
+   * 起動時の「一回限りの取得」と、その後の「状態変化」の両方をカバー。
    */
   useEffect(() => {
-    // 1. まず現在のセッションを確認
+    // A. 【初期化】現在のセッションを直接確認しに行く
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // セッションがあればロード解除して表示
+        setLoading(false); 
+      } else {
+        // セッションがなければ即座にログイン画面へ
+        router.push("/login");
+      }
+    };
+
+    initializeAuth();
+
+    // B. 【監視】認証状態の変化（ログイン/ログアウト）をリアルタイムで追跡
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
-        setLoading(false); // ログインを確認できたらロード終了
-      } else if (event === "SIGNED_OUT" || !session) {
-        router.push("/login"); // ログアウト時や未ログイン時はログインへ
+        setLoading(false);
+      } else if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) {
+        // ログアウト時、またはセッション消失時にログイン画面へ飛ばす
+        router.push("/login");
       }
     });
 
-    // コンポーネントが消える時に監視を止める（メモリリーク防止）
+    // クリーンアップ：ページを離れる時に監視を止めてメモリを守る
     return () => subscription.unsubscribe();
   }, [router]);
 
   /**
-   * 2. ログアウト処理 (Sign Out)
-   * ボタンを押した時に実行。Supabaseのセッションを破棄してログイン画面に戻す。
+   * 2. ログアウト処理
+   * Supabaseのセッションを破棄し、AuthGuardによって自動的にログイン画面へ遷移させる。
    */
   const handleLogout = async () => {
-    // Supabase側のセッションを無効化
     await supabase.auth.signOut();
-    // 画面をログインへ戻す
+    // onAuthStateChangeが SIGNED_OUT を検知して自動で移動するが、念のため手動でも遷移
     router.push("/login");
   };
 
-  // セッションチェック中は何も表示せず、Loading画面を出す
+  // ロード中の表示：エンジニアらしいサイバーな演出
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-green-500 flex items-center justify-center font-black italic animate-pulse">
@@ -57,7 +68,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
       
-      {/* 🔴 ログアウトセクション：右上に配置して邪魔にならないように */}
+      {/* 🔴 ログアウト：右上にネオンレッドのアクセント */}
       <div className="w-full max-w-md flex justify-end mb-8">
         <button 
           onClick={handleLogout}
@@ -67,23 +78,23 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 🎨 タイトル：光の三原色グラデーション */}
+      {/* 🎨 メインタイトル：RGBグラデーション */}
       <h1 className="text-5xl font-black mb-16 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-blue-500 to-green-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] text-center">
         BIG3 <span className="text-white">LOG</span>
       </h1>
 
+      {/* 各カードの間隔を space-y-10 で広げ、視認性を確保 */}
       <div className="w-full max-w-md space-y-10">
         
-        {/* 🔴 BENCH PRESS CARD: Red Neon */}
+        {/* 🔴 BENCH PRESS: Red Neon */}
         <Link href="/bench">
           <div className="w-full h-32 bg-gray-800 border-2 border-red-600 rounded-[40px] flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:shadow-[0_0_35px_rgba(220,38,38,0.5)] transition-all active:scale-95 group relative overflow-hidden">
             <span className="text-4xl font-black text-red-500 tracking-widest italic drop-shadow-[0_0_10px_rgba(220,38,38,0.6)]">BENCH</span>
-            {/* ホバー時の光の走り */}
             <div className="absolute inset-0 bg-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity"/>
           </div>
         </Link>
 
-        {/* 🔵 SQUAT CARD: Blue Neon */}
+        {/* 🔵 SQUAT: Blue Neon */}
         <Link href="/squat">
           <div className="w-full h-32 bg-gray-800 border-2 border-blue-600 rounded-[40px] flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_35px_rgba(37,99,235,0.5)] transition-all active:scale-95 group relative overflow-hidden">
             <span className="text-4xl font-black text-blue-500 tracking-widest italic drop-shadow-[0_0_10px_rgba(37,99,235,0.6)]">SQUAT</span>
@@ -91,7 +102,7 @@ export default function Home() {
           </div>
         </Link>
 
-        {/* 🟢 DEADLIFT CARD: Lime Neon */}
+        {/* 🟢 DEADLIFT: Lime Neon - /dead ではなく /deadlift に修正済み */}
         <Link href="/deadlift">
           <div className="w-full h-32 bg-gray-800 border-2 border-lime-500 rounded-[40px] flex items-center justify-center shadow-[0_0_20px_rgba(163,230,53,0.3)] hover:shadow-[0_0_35px_rgba(163,230,53,0.5)] transition-all active:scale-95 group relative overflow-hidden">
             <span className="text-4xl font-black text-lime-400 tracking-widest italic drop-shadow-[0_0_10px_rgba(163,230,53,0.6)] text-center">DEADLIFT</span>
@@ -106,7 +117,7 @@ export default function Home() {
           </div>
         </Link>
 
-        {/* ⚪ HISTORY: 履歴閲覧（少し落ち着いたトーンで） */}
+        {/* ⚪ HISTORY: シルバー/グレイ */}
         <Link href="/history">
           <div className="w-full py-5 bg-gray-900 border border-gray-700 rounded-2xl flex items-center justify-center hover:bg-gray-800 transition-all active:scale-95 mt-8">
             <span className="text-sm font-bold text-gray-400 tracking-[0.3em] uppercase">View History 📝</span>
@@ -115,9 +126,9 @@ export default function Home() {
 
       </div>
 
-      {/* 🚀 フッター：エンジニアらしいバージョン表記 */}
+      {/* 🚀 バージョン表記：チキンレッグを回避した証 */}
       <p className="mt-20 text-[10px] text-gray-600 tracking-[0.5em] uppercase font-black italic">
-        v1.4.5
+        27-SOTSU ENGINEER EDITION
       </p>
     </main>
   );
