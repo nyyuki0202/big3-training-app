@@ -87,7 +87,7 @@ export default function LoginPage() {
               </span>
             </button>
             <p className="mt-8 text-center text-[10px] text-gray-500 tracking-[0.2em] leading-relaxed">
-              スクワットしないやつ<br/>チキンレッグ
+              googleログインしても<br/>なぜかここに戻ってくるバグが発生中<br/>このページをどじて<br/>もう一度ひらいてね<br/>有識者募集中<br/>スクワットしないやつ<br/>チキンレッグ
             </p>
           </div>
         ) : (
