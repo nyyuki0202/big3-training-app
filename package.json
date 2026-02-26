@@ -11,7 +11,6 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.30",
     "@ai-sdk/react": "^3.0.99",
-    "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.98.0",
     "ai": "^6.0.97",

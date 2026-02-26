@@ -74,7 +74,7 @@ export default function Home() {
         BIG3 <span className="text-white">LOG</span>
       </h1>
 
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-10">
         
         {/* 🔴 BENCH PRESS CARD: Red Neon */}
         <Link href="/bench">

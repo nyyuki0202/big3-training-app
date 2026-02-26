@@ -50,7 +50,7 @@ export default function LoginPage() {
     <main className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-6 font-black italic">
       {/* ネオンRGBタイトルの復活 */}
       <h1 className="text-5xl mb-10 text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-blue-500 to-green-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-        BIG3 LOG IN
+       LOG IN
       </h1>
 
       {/* モード切替スイッチ：IT専攻らしい、状態遷移のUI */}
@@ -87,7 +87,7 @@ export default function LoginPage() {
               </span>
             </button>
             <p className="mt-8 text-center text-[10px] text-gray-500 tracking-[0.2em] leading-relaxed">
-              善通寺のジムで、手が震えていても<br/>1タップで記録開始。
+              スクワットしないやつ<br/>チキンレッグ
             </p>
           </div>
         ) : (
