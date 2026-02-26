@@ -19,7 +19,7 @@ export default function DeadliftPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         const { data } = await supabase.from('workouts').select('weight, reps')
-          .eq('exercise', 'dead').eq('user_id', session.user.id)
+          .eq('exercise', 'deadlift').eq('user_id', session.user.id)
           .order('created_at', { ascending: false }).limit(1).maybeSingle();
         if (data) { setWeight(data.weight); setReps(data.reps); }
         else { setWeight(100); setReps(5); }
@@ -33,7 +33,7 @@ export default function DeadliftPage() {
     setIsSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      await supabase.from('workouts').insert([{ exercise: 'dead', weight, reps, user_id: session?.user.id }]);
+      await supabase.from('workouts').insert([{ exercise: 'deadlift', weight, reps, user_id: session?.user.id }]);
       router.push("/");
     } catch (e) { alert("Error..."); setIsSubmitting(false); }
   };
