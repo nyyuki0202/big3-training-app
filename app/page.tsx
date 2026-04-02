@@ -141,6 +141,14 @@ export default function Home() {
           </div>
         </Link>
 
+        {/* 💡 今回追加：1RM計算機 (ひっそりと配置) */}
+        <Link href="/calc">
+          <div className="w-full py-4 bg-gray-950/50 border border-gray-800/50 rounded-2xl flex items-center justify-center hover:bg-gray-800 transition-all active:scale-95 mt-4">
+            <span className="text-[10px] font-bold text-gray-600 tracking-[0.4em] uppercase">
+              1RM_CONVERTER 🧮
+            </span>
+          </div>
+        </Link>
       </div>
 
       <p className="mt-20 text-[10px] text-gray-600 tracking-[0.5em] uppercase font-black italic">
