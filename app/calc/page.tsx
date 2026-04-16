@@ -369,21 +369,50 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 )}
-                {day.assistance.length > 0 && (
-                  <div>
-                    <p className="text-yellow-400 font-bold text-sm mb-1">assistance</p>
-                    <div className="flex flex-wrap gap-2">
-                      {day.assistance.map((set) => (
-                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left">
-                          <div>
-                            <span className="text-yellow-400 font-bold">{set.name}</span>: {set.weight}kg × {set.reps}
-                          </div>
-                          {set.notes && <div className="text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">≫ {set.notes}</div>}
-                        </button>
-                      ))}
-                    </div>
+              {/* --- 補助種目の表示セクション --- */}
+              {day.assistance.length > 0 && (
+                <div>
+                  <p className="text-yellow-400 font-bold text-sm mb-2 uppercase tracking-widest">assistance</p>
+                  
+                  <div className="space-y-4">
+                    {/* 💡 種目名ごとにグループ化して処理 */}
+                    {Object.entries(
+                      day.assistance.reduce((acc, set) => {
+                        if (!acc[set.name]) acc[set.name] = [];
+                        acc[set.name].push(set);
+                        return acc;
+                      }, {} as Record<string, OtherData[]>)
+                    ).map(([exerciseName, sets]) => (
+                      <div key={exerciseName} className="flex flex-col gap-1.5">
+                        {/* 💡 種目名はここで1回だけ表示 */}
+                        <p className="text-[11px] text-gray-500 ml-1 font-bold uppercase tracking-tighter">
+                          {exerciseName}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {sets.map((set) => (
+                            <button
+                              key={set.id}
+                              onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
+                              className="bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                            >
+                              <div className="text-xs font-black italic">
+                                {set.weight}kg × {set.reps}
+                              </div>
+                              {/* 備考があれば表示 */}
+                              {set.notes && (
+                                <div className="text-[9px] text-gray-500 italic mt-0.5 max-w-[80px] truncate">
+                                  ≫ {set.notes}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
               </div>
             ))}
           </div>
