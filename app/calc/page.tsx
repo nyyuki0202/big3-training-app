@@ -373,7 +373,7 @@ export default function HistoryPage() {
               {day.assistance.length > 0 && (
                 <div>
                   <p className="text-yellow-400 font-bold text-sm mb-2 uppercase tracking-widest">assistance</p>
-                  
+
                   <div className="space-y-4">
                     {/* 💡 種目名ごとにグループ化して処理 */}
                     {Object.entries(
@@ -385,18 +385,18 @@ export default function HistoryPage() {
                     ).map(([exerciseName, sets]) => (
                       <div key={exerciseName} className="flex flex-col gap-1.5">
                         {/* 💡 種目名はここで1回だけ表示 */}
-                        <p className="text-[11px] text-gray-500 ml-1 font-bold uppercase tracking-tighter">
+                        <p className="text-[11px] text-white-500 ml-1 font-bold uppercase tracking-tighter">
                           {exerciseName}
                         </p>
-                        
+
                         <div className="flex flex-wrap gap-2">
                           {sets.map((set) => (
                             <button
                               key={set.id}
                               onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
-                              className="bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                              className="bg-gray-900 px-3 py-1.5 rounded-xs border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
                             >
-                              <div className="text-xs font-black italic">
+                              <div className="text-xs font-bold italic text-white">
                                 {set.weight}kg × {set.reps}
                               </div>
                               {/* 備考があれば表示 */}
