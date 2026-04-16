@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function BenchPage() {
+  const [notes, setNotes] = useState("");
   const router = useRouter();
   const [weight, setWeight] = useState(0);
   const [reps, setReps] = useState(0);
@@ -33,7 +34,7 @@ export default function BenchPage() {
     setIsSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      await supabase.from('workouts').insert([{ exercise: 'bench', weight, reps, user_id: session?.user.id }]);
+      await supabase.from('workouts').insert([{ exercise: 'bench', weight, reps, notes: notes.trim() || null, user_id: session?.user.id }]);
       router.push("/");
     } catch (e) { alert("Error..."); setIsSubmitting(false); }
   };
@@ -72,6 +73,18 @@ export default function BenchPage() {
             <div className="flex-1 text-7xl font-black text-center text-fuchsia-400 drop-shadow-[0_0_20px_rgba(232,121,249,0.5)]">{reps}</div>
             <button onClick={() => setReps(r => r + 1)} className="w-16 h-16 bg-fuchsia-600 rounded-full text-3xl font-bold">+</button>
           </div>
+        </div>
+        
+        {/*備考欄*/}
+        <div className="w-full max-w-xs mb-8">
+          <label className="text-[10px] text-gray-500 ml-4 mb-2 block uppercase tracking-widest italic">Comments</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="1rep目は楽だった / フォーム意識..."
+            className="w-full bg-gray-800/40 border-2 border-gray-700 rounded-3xl p-4 text-sm text-gray-300 focus:border-blue-500 focus:outline-none focus:shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all italic"
+            rows={2}
+          />
         </div>
         <button onClick={handleRecord} className="w-full py-6 bg-white text-black font-black text-3xl rounded-3xl active:scale-95 shadow-xl">RECORD SET</button>
       </div>
