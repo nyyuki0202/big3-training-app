@@ -385,7 +385,7 @@ export default function HistoryPage() {
                     ).map(([exerciseName, sets]) => (
                       <div key={exerciseName} className="flex flex-col gap-1.5">
                         {/* 💡 種目名はここで1回だけ表示 */}
-                        <p className="text-[11px] text-white-500 ml-1 font-bold uppercase tracking-tighter">
+                        <p className="text-[16px] text-white-500 ml-1 font-bold uppercase tracking-tighter">
                           {exerciseName}
                         </p>
 
@@ -394,9 +394,9 @@ export default function HistoryPage() {
                             <button
                               key={set.id}
                               onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
-                              className="bg-gray-900 px-2 py-1 rounded-xs border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                              className="bg-gray-900 px-2 py-1 rounded-l border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
                             >
-                              <div className="text-xs font italic text-white">
+                              <div className="text-xs text-white">
                                 {set.weight}kg × {set.reps}
                               </div>
                               {/* 備考があれば表示 */}
