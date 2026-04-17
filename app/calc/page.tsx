@@ -385,7 +385,7 @@ export default function HistoryPage() {
                     ).map(([exerciseName, sets]) => (
                       <div key={exerciseName} className="flex flex-col gap-1.5">
                         {/* 💡 種目名はここで1回だけ表示 */}
-                        <p className="text-[16px] text-white-500 ml-1 font-bold uppercase tracking-tighter">
+                        <p className="text-[14px] text-white-400 ml-1 font-bold uppercase tracking-tighter">
                           {exerciseName}
                         </p>
 
