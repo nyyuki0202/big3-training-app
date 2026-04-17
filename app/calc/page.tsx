@@ -394,7 +394,7 @@ export default function HistoryPage() {
                             <button
                               key={set.id}
                               onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
-                              className="bg-gray-900 px-2 py-1 rounded-l border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                              className="bg-gray-900 px-2 py-1 rounded border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
                             >
                               <div className="text-xs text-white">
                                 {set.weight}kg × {set.reps}
