@@ -12,6 +12,7 @@ type SetData = {
   weight: number;
   reps: number;
   e1rm: number;
+  notes?: string; // 💡 追加
 };
 
 // 補助種目のデータ型
@@ -20,6 +21,7 @@ type OtherData = {
   name: string;
   weight: number;
   reps: number;
+  notes?: string; // 💡 追加
 };
 
 // 1日分のデータ型
@@ -40,7 +42,8 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number} | null>(null);
+  // 💡 型に notes を追加
+  const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number, notes?: string} | null>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   
   const [startDate, setStartDate] = useState("");
@@ -49,14 +52,12 @@ export default function HistoryPage() {
   const fetchLogs = async () => {
     setLoading(true);
 
-    // ▼ 修正箇所：現在のセッションからユーザーIDを取得
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setLoading(false);
       return;
     }
 
-    // ▼ 修正箇所：.eq('user_id', session.user.id) を追加して自分のデータのみ取得
     const { data, error } = await supabase
       .from('workouts')
       .select('*')
@@ -88,7 +89,8 @@ export default function HistoryPage() {
         const dayEntry = groupedMap.get(dateStr)!;
         const exercise = log.exercise;
         const currentE1RM = calculateE1RM(log.weight, log.reps);
-        const setData: SetData = { id: log.id, weight: log.weight, reps: log.reps, e1rm: currentE1RM };
+        // 💡 notes をデータに含める
+        const setData: SetData = { id: log.id, weight: log.weight, reps: log.reps, e1rm: currentE1RM, notes: log.notes };
 
         if (exercise === 'bench') {
           dayEntry.bench.push(setData);
@@ -101,7 +103,8 @@ export default function HistoryPage() {
             id: log.id,
             name: exercise,
             weight: log.weight,
-            reps: log.reps
+            reps: log.reps,
+            notes: log.notes // 💡 追加
           });
         }
       });
@@ -123,10 +126,9 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-  // Excel出力機能
+  // Excel出力機能 (既存のまま)
   const executeDownload = async (filter: boolean) => {
     let targetData = tableData;
-    
     if (filter) {
       targetData = tableData.filter(day => {
         const rowDate = day.date.replaceAll('/', '-'); 
@@ -135,15 +137,9 @@ export default function HistoryPage() {
         return rowDate >= start && rowDate <= end;
       });
     }
-
-    if (targetData.length === 0) {
-      alert("指定された期間のデータがありません");
-      return;
-    }
-
+    if (targetData.length === 0) { alert("指定された期間のデータがありません"); return; }
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Workout Log');
-
     worksheet.columns = [
       { header: 'Date', key: 'date', width: 14 },
       { header: 'BENCH PRESS', key: 'bench', width: 22 },
@@ -154,94 +150,63 @@ export default function HistoryPage() {
       { header: 'PV', key: 'deadlift_pv', width: 6 },
       { header: 'assistance (Memo)', key: 'assistance', width: 45 },
     ];
-
     const headerRow = worksheet.getRow(1);
     headerRow.height = 25;
-
     for (let i = 1; i <= 8; i++) {
       const cell = worksheet.getCell(1, i);
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF4B5563' }
-      };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4B5563' } };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
     }
-
     let currentRowIdx = 2; 
-
     targetData.forEach((day) => {
       const startRow = currentRowIdx;
-      
-      for (let i = 0; i < 3; i++) {
-        worksheet.addRow(['', '', '', '', '', '', '', '']);
-      }
-
+      for (let i = 0; i < 3; i++) worksheet.addRow(['', '', '', '', '', '', '', '']);
       const dateCell = worksheet.getCell(`A${startRow}`);
       dateCell.value = day.date;
-      
       const assistanceCell = worksheet.getCell(`H${startRow}`);
       if (day.assistance.length > 0) {
         assistanceCell.value = day.assistance.map(o => `${o.name}: ${o.weight}kg x ${o.reps}`).join('\n');
-      } else {
-        assistanceCell.value = "-";
-      }
-
+      } else { assistanceCell.value = "-"; }
       const exercises = [
         { key: 'bench', colLetter: 'B', pvCol: 'C' },
         { key: 'squat', colLetter: 'D', pvCol: 'E' },
         { key: 'deadlift', colLetter: 'F', pvCol: 'G' }
       ] as const;
-
       exercises.forEach(({ key, colLetter, pvCol }) => {
         const sets = day[key];
         for (let i = 0; i < 3; i++) {
           const rowNum = startRow + i;
           const mainCell = worksheet.getCell(`${colLetter}${rowNum}`);
           const pvCell = worksheet.getCell(`${pvCol}${rowNum}`);
-
           if (sets[i]) {
             mainCell.value = `${sets[i].weight} kg  ${sets[i].reps} rep`;
             pvCell.value = sets[i].e1rm;
             pvCell.font = { bold: true };
           } else {
-            mainCell.value = "-";
-            pvCell.value = "-";
+            mainCell.value = "-"; pvCell.value = "-";
             mainCell.font = { color: { argb: 'FFAAAAAA' } };
             pvCell.font = { color: { argb: 'FFAAAAAA' } };
           }
-          
           mainCell.alignment = { vertical: 'middle', horizontal: 'center' };
           pvCell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
       });
-
       worksheet.mergeCells(`A${startRow}:A${startRow + 2}`);
       dateCell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
       dateCell.font = { bold: true };
-
       worksheet.mergeCells(`H${startRow}:H${startRow + 2}`);
       assistanceCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-
       currentRowIdx += 3;
     });
-
     worksheet.eachRow((row) => {
       row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       });
     });
-
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, `workout_log_${filter ? 'range' : 'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
-    
     setShowDownloadModal(false);
   };
 
@@ -254,7 +219,15 @@ export default function HistoryPage() {
 
   const handleUpdate = async () => {
     if (!editingItem) return;
-    const { error } = await supabase.from('workouts').update({ weight: editingItem.weight, reps: editingItem.reps }).eq('id', editingItem.id);
+    // 💡 データベースの更新に notes を含める
+    const { error } = await supabase
+      .from('workouts')
+      .update({ 
+        weight: editingItem.weight, 
+        reps: editingItem.reps,
+        notes: editingItem.notes // 💡 追加
+      })
+      .eq('id', editingItem.id);
     if (!error) { setEditingItem(null); fetchLogs(); }
   };
 
@@ -310,6 +283,17 @@ export default function HistoryPage() {
                   <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-12 h-12 shrink-0 bg-blue-600 rounded-full font-bold hover:bg-blue-500">+</button>
                 </div>
               </div>
+              {/* 💡 編集モーダルに備考欄を追加 */}
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">NOTES</label>
+                <textarea
+                  value={editingItem.notes || ""}
+                  onChange={(e) => setEditingItem({...editingItem, notes: e.target.value})}
+                  className="w-full bg-gray-900 text-white p-3 rounded-lg border border-gray-700 text-sm focus:outline-none focus:border-blue-500"
+                  rows={2}
+                  placeholder="メモを入力..."
+                />
+              </div>
             </div>
             <div className="flex gap-3">
               <button onClick={handleDelete} className="flex-1 py-3 bg-red-900/50 text-red-400 border border-red-800 rounded-xl font-bold hover:bg-red-900">DELETE 🗑️</button>
@@ -344,8 +328,12 @@ export default function HistoryPage() {
                     <p className="text-red-400 font-bold text-sm mb-1">BENCH PRESS</p>
                     <div className="flex flex-wrap gap-2">
                       {day.bench.map((set) => (
-                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'bench', weight: set.weight, reps: set.reps})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-red-500">
-                          {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'bench', weight: set.weight, reps: set.reps, notes: set.notes})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-red-500 text-left">
+                          <div>
+                            {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                          </div>
+                          {/* 💡 備考があれば表示 */}
+                          {set.notes && <div className="text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">≫ {set.notes}</div>}
                         </button>
                       ))}
                     </div>
@@ -356,8 +344,11 @@ export default function HistoryPage() {
                     <p className="text-blue-400 font-bold text-sm mb-1">SQUAT</p>
                     <div className="flex flex-wrap gap-2">
                       {day.squat.map((set) => (
-                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'squat', weight: set.weight, reps: set.reps})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-blue-500">
-                          {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'squat', weight: set.weight, reps: set.reps, notes: set.notes})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-blue-500 text-left">
+                          <div>
+                            {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                          </div>
+                          {set.notes && <div className="text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">≫ {set.notes}</div>}
                         </button>
                       ))}
                     </div>
@@ -368,25 +359,60 @@ export default function HistoryPage() {
                     <p className="text-green-400 font-bold text-sm mb-1">DEADLIFT</p>
                     <div className="flex flex-wrap gap-2">
                       {day.deadlift.map((set) => (
-                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'deadlift', weight: set.weight, reps: set.reps})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-green-500">
-                          {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'deadlift', weight: set.weight, reps: set.reps, notes: set.notes})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 hover:bg-gray-700 hover:border-green-500 text-left">
+                          <div>
+                            {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
+                          </div>
+                          {set.notes && <div className="text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">≫ {set.notes}</div>}
                         </button>
                       ))}
                     </div>
                   </div>
                 )}
-                {day.assistance.length > 0 && (
-                  <div>
-                    <p className="text-yellow-400 font-bold text-sm mb-1">assistance</p>
-                    <div className="flex flex-wrap gap-2">
-                      {day.assistance.map((set) => (
-                        <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps})} className="bg-gray-900 px-2 py-1 rounded text-xs border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500">
-                          {set.name}: {set.weight}kg × {set.reps}
-                        </button>
-                      ))}
-                    </div>
+              {/* --- 補助種目の表示セクション --- */}
+              {day.assistance.length > 0 && (
+                <div>
+                  <p className="text-yellow-400 font-bold text-sm mb-2 uppercase tracking-widest">assistance</p>
+
+                  <div className="space-y-4">
+                    {/* 💡 種目名ごとにグループ化して処理 */}
+                    {Object.entries(
+                      day.assistance.reduce((acc, set) => {
+                        if (!acc[set.name]) acc[set.name] = [];
+                        acc[set.name].push(set);
+                        return acc;
+                      }, {} as Record<string, OtherData[]>)
+                    ).map(([exerciseName, sets]) => (
+                      <div key={exerciseName} className="flex flex-col gap-1.5">
+                        {/* 💡 種目名はここで1回だけ表示 */}
+                        <p className="text-[14px] text-white-400 ml-1 font-bold uppercase tracking-tighter">
+                          {exerciseName}
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {sets.map((set) => (
+                            <button
+                              key={set.id}
+                              onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
+                              className="bg-gray-900 px-2 py-1 rounded border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                            >
+                              <div className="text-xs text-white">
+                                {set.weight}kg × {set.reps}
+                              </div>
+                              {/* 備考があれば表示 */}
+                              {set.notes && (
+                                <div className="text-[9px] text-gray-500 italic mt-0.5 max-w-[80px] truncate">
+                                  ≫ {set.notes}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
               </div>
             ))}
           </div>
@@ -404,7 +430,7 @@ export default function HistoryPage() {
               <th className="p-2 border-b border-r border-gray-600 text-red-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">BENCH (Top 3)</th>
               <th className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">SQUAT (Top 3)</th>
               <th className="p-2 border-b border-r border-gray-600 text-green-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">DEADLIFT (Top 3)</th>
-              <th className="p-2 border-b border-gray-600 text-yellow-400 font-bold min-w-[200px] sticky top-0 bg-gray-700 z-40">ASSISTANCE</th>
+              <th className="p-2 border-b border-r border-gray-600 text-yellow-400 font-bold min-w-[200px] sticky top-0 bg-gray-700 z-40">ASSISTANCE</th>
             </tr>
           </thead>
           <tbody>
@@ -416,9 +442,13 @@ export default function HistoryPage() {
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.bench.map((set) => (
-                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'bench', weight: set.weight, reps: set.reps})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex justify-between gap-2 hover:bg-gray-700 hover:ring-1 hover:ring-red-400">
-                        <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
-                        <span className="font-mono text-red-400">PV:{set.e1rm}</span>
+                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'bench', weight: set.weight, reps: set.reps, notes: set.notes})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex flex-col items-center hover:bg-gray-700 hover:ring-1 hover:ring-red-400">
+                        <div className="flex justify-between w-full gap-2">
+                          <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
+                          <span className="font-mono text-red-400">PV:{set.e1rm}</span>
+                        </div>
+                        {/* 💡 横画面のテーブル内でも備考を表示 */}
+                        {set.notes && <div className="text-[9px] text-gray-500 italic truncate w-full">≫ {set.notes}</div>}
                       </button>
                     ))}
                   </div>
@@ -426,9 +456,12 @@ export default function HistoryPage() {
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.squat.map((set) => (
-                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'squat', weight: set.weight, reps: set.reps})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex justify-between gap-2 hover:bg-gray-700 hover:ring-1 hover:ring-blue-400">
-                        <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
-                        <span className="font-mono text-blue-400">PV:{set.e1rm}</span>
+                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'squat', weight: set.weight, reps: set.reps, notes: set.notes})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex flex-col items-center hover:bg-gray-700 hover:ring-1 hover:ring-blue-400">
+                        <div className="flex justify-between w-full gap-2">
+                          <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
+                          <span className="font-mono text-blue-400">PV:{set.e1rm}</span>
+                        </div>
+                        {set.notes && <div className="text-[9px] text-gray-500 italic truncate w-full">≫ {set.notes}</div>}
                       </button>
                     ))}
                   </div>
@@ -436,9 +469,12 @@ export default function HistoryPage() {
                 <td className="p-2 border-r border-gray-700 bg-gray-800/30">
                   <div className="flex flex-col gap-1 items-center">
                     {row.deadlift.map((set) => (
-                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'deadlift', weight: set.weight, reps: set.reps})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex justify-between gap-2 hover:bg-gray-700 hover:ring-1 hover:ring-green-400">
-                        <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
-                        <span className="font-mono text-green-400">PV:{set.e1rm}</span>
+                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: 'deadlift', weight: set.weight, reps: set.reps, notes: set.notes})} className="text-xs bg-gray-900/50 px-2 py-1 rounded w-full flex flex-col items-center hover:bg-gray-700 hover:ring-1 hover:ring-green-400">
+                        <div className="flex justify-between w-full gap-2">
+                          <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
+                          <span className="font-mono text-green-400">PV:{set.e1rm}</span>
+                        </div>
+                        {set.notes && <div className="text-[9px] text-gray-500 italic truncate w-full">≫ {set.notes}</div>}
                       </button>
                     ))}
                   </div>
@@ -446,8 +482,11 @@ export default function HistoryPage() {
                 <td className="p-2 text-left text-xs text-gray-300 min-w-[200px] align-middle">
                   <div className="flex flex-wrap gap-1">
                     {row.assistance.map((set) => (
-                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps})} className="bg-gray-700 px-2 py-1 rounded inline-block hover:bg-gray-600 hover:text-yellow-400">
-                        <span className="text-yellow-400 font-bold">{set.name}</span>: {set.weight}kg × {set.reps}
+                      <button key={set.id} onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})} className="bg-gray-700 px-2 py-1 rounded flex flex-col items-start hover:bg-gray-600 hover:text-yellow-400">
+                        <div>
+                          <span className="text-yellow-400 font-bold">{set.name}</span>: {set.weight}kg × {set.reps}
+                        </div>
+                        {set.notes && <div className="text-[9px] text-gray-500 italic truncate w-32">≫ {set.notes}</div>}
                       </button>
                     ))}
                   </div>
