@@ -5,105 +5,53 @@ import Link from "next/link";
 
 export default function OneRepMaxConverter() {
   const [weight, setWeight] = useState(100);
-  const [reps, setReps] = useState(1);
+  const [reps, setReps] = useState(5);
 
-  // 💡 エプリーの公式による推定1RM計算
   const calculate1RM = () => {
     if (reps === 1) return weight;
     return Math.round(weight * (1 + reps / 30));
   };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6 pb-20 font-bold italic tracking-tighter flex flex-col items-center justify-center overflow-x-hidden">
-      
-      {/* 戻るリンク */}
-      <div className="w-full max-w-xs mb-12">
-        <Link href="/" className="text-gray-600 hover:text-white text-xs tracking-widest font-normal transition-colors">
-          ← EXIT_CALCULATOR
-        </Link>
-      </div>
+    <main className="min-h-screen bg-gray-900 text-white p-4 pb-20 flex flex-col items-center justify-center">
+      <div className="w-full max-w-md flex flex-col gap-6">
+        <div>
+          <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back to TOP</Link>
+        </div>
 
-      {/* メインタイトル */}
-      <h1 className="text-4xl font-black tracking-widest text-gray-400 uppercase text-center mb-16 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-700">
-        1RM_CONVERTER
-      </h1>
+        <h1 className="text-2xl font-bold text-center text-purple-400 uppercase tracking-wider mb-2">1RM CONVERTER</h1>
 
-      <div className="w-full max-w-xs space-y-12">
-        
-        {/* --- WEIGHT INPUT CARD --- */}
-        <div className="relative border-b border-blue-600 pb-4">
-          <label className="text-[10px] text-blue-500 tracking-widest block uppercase mb-6">
-            INPUT_WEIGHT (KG)
-          </label>
+        {/* 💡 いつもの重量設定カード（青ベース） */}
+        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center">
+          <label className="text-xs text-gray-400 block mb-2">WEIGHT (kg)</label>
           <div className="flex items-center justify-between">
-            {/* 縦型のインジケータバーを再現 */}
-            <div className="w-2 h-16 bg-gray-800 rounded-full relative flex items-center justify-center border border-gray-700">
-              <div 
-                className="absolute w-3 h-1.5 bg-gray-400 rounded border border-gray-900 shadow-sm"
-                style={{ bottom: `${Math.min(100, (weight / 200) * 100)}%` }}
-              />
-            </div>
-            
-            {/* 数値入力部分 */}
-            <input 
-              type="number" 
-              value={weight} 
-              onChange={(e) => setWeight(Math.max(0, Number(e.target.value)))}
-              className="w-48 bg-transparent text-right text-6xl font-black text-white focus:outline-none tracking-tighter"
-            />
+            <button onClick={() => setWeight(Math.max(0, weight - 2.5))} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-2.5</button>
+            <input type="number" step="0.25" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className="w-24 bg-transparent text-center text-2xl font-bold focus:outline-none" />
+            <button onClick={() => setWeight(weight + 2.5)} className="w-12 h-12 bg-blue-600 text-white rounded-full font-bold hover:bg-blue-500">+2.5</button>
           </div>
         </div>
 
-        {/* --- REPS INPUT CARD --- */}
-        <div className="relative border-b border-red-600 pb-4">
-          <label className="text-[10px] text-red-500 tracking-widest block uppercase mb-6">
-            INPUT_REPS (COUNT)
-          </label>
+        {/* 💡 いつものレップ設定カード（紫ベース） */}
+        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center">
+          <label className="text-xs text-gray-400 block mb-2">REPS</label>
           <div className="flex items-center justify-between">
-            {/* 縦型のインジケータバーを再現 */}
-            <div className="w-2 h-16 bg-gray-800 rounded-full relative flex items-center justify-center border border-gray-700">
-              <div 
-                className="absolute w-3 h-1.5 bg-gray-400 rounded border border-gray-900 shadow-sm"
-                style={{ bottom: `${Math.min(100, (reps / 20) * 100)}%` }}
-              />
-            </div>
-            
-            {/* 数値入力部分 */}
-            <input 
-              type="number" 
-              value={reps} 
-              onChange={(e) => setReps(Math.max(1, Number(e.target.value)))}
-              className="w-48 bg-transparent text-right text-6xl font-black text-white focus:outline-none tracking-tighter"
-            />
+            <button onClick={() => setReps(Math.max(1, reps - 1))} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-</button>
+            <input type="number" value={reps} onChange={(e) => setReps(Number(e.target.value))} className="w-24 bg-transparent text-center text-2xl font-bold focus:outline-none" />
+            <button onClick={() => setReps(reps + 1)} className="w-12 h-12 bg-purple-600 text-white rounded-full font-bold hover:bg-purple-500">+</button>
           </div>
         </div>
 
-        {/* 区切り線 */}
-        <div className="h-[1px] bg-gray-800 my-8" />
-
-        {/* --- ESTIMATED RESULT --- */}
-        <div className="text-center pt-4">
-          <label className="text-[10px] text-green-500 tracking-widest block uppercase mb-4">
-            ESTIMATED_MAX_WEIGHT
-          </label>
-          <div className="inline-flex items-baseline justify-center gap-2 relative group">
-            {/* クソデカ換算数値（光彩グロー効果付き） */}
-            <span className="text-7xl font-black text-white tracking-tighter drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
+        {/* 💡 換算結果：大きめに強調表示 */}
+        <div className="mt-6 p-6 bg-gray-800/40 rounded-2xl border border-gray-800 text-center shadow-inner">
+          <label className="text-xs text-green-400 font-bold block mb-2 uppercase tracking-widest">ESTIMATED 1RM</label>
+          <div className="flex items-baseline justify-center gap-2">
+            <span className="text-6xl font-black text-white tracking-tighter">
               {calculate1RM()}
             </span>
-            <span className="text-2xl font-black text-gray-500 italic">
-              KG
-            </span>
+            <span className="text-xl font-bold text-gray-500">KG</span>
           </div>
         </div>
-
       </div>
-
-      {/* フッターモジュール表記 */}
-      <div className="mt-20 text-[9px] text-gray-700 tracking-[0.3em] uppercase opacity-40">
-        MATRIX_CALC_MODULE_V1.0
-      </div>
-
     </main>
   );
 }
