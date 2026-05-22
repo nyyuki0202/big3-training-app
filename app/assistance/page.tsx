@@ -1,40 +1,35 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// 💡 初期表示用の王道リスト
 const DEFAULT_EXERCISES = [
-  "Bulgarian Squat",
-  "Cable Crossover",
-  "Dumbbell Fly",
-  "Dumbbell Row",
-  "Incline Dumbbell Press",
-  "Lat Pulldown",
-  "Leg Curl",
-  "Leg Extension",
-  "Leg Press",
-  "Romanian Deadlift",
-  "Seated Row",
-  "Side Lateral Raise",
-  "Skull Crusher",
-  "Tempo Bench Press"
+  "Incline Dumbbell Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
+  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown", "Shoulder Press", 
+  "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift"
 ];
 
 export default function AssistancePage() {
   const router = useRouter();
-  
-  const [exerciseName, setExerciseName] = useState("");
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [exercise, setExercise] = useState(DEFAULT_EXERCISES[0]);
+  const [customExercise, setCustomExercise] = useState("");
   const [weight, setWeight] = useState(20);
   const [reps, setReps] = useState(10);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(""); // 💡 備考欄のState
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWeightInputMode, setIsWeightInputMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // サジェスト機能用のマスター配列
   const [masterExercises, setMasterExercises] = useState<string[]>(DEFAULT_EXERCISES);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const isFetched = useRef(false);
 
+  // 1. 💡 ユーザー固有のカスタム種目をDBから読み込み、デフォルトと結合してabc順ソート
   useEffect(() => {
     const fetchCustomExercises = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -59,122 +54,148 @@ export default function AssistancePage() {
     }
   }, []);
 
-  const handleRecord = async () => {
-    if (!exerciseName.trim() || isSubmitting) return;
-    setIsSubmitting(true);
-
-    try {
+  // 種目変更時に前回値を自動取得 (元の仕様を維持)
+  useEffect(() => {
+    const fetchLastRecord = async () => {
+      const selected = isCustomMode ? customExercise : exercise;
+      if (!selected) return;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
+      const { data } = await supabase.from('workouts').select('weight, reps')
+        .eq('exercise', selected).eq('user_id', session?.user.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (data) { setWeight(data.weight); setReps(data.reps); }
+      setIsLoading(false);
+    };
+    fetchLastRecord();
+  }, [exercise, isCustomMode, customExercise]);
 
-      const trimmedName = exerciseName.trim();
+  const handleRecord = async () => {
+    if (isSubmitting) return;
+    const finalName = isCustomMode ? customExercise.trim() : exercise;
+    if (!finalName) return;
 
-      if (!masterExercises.includes(trimmedName)) {
-        await supabase
-          .from("favorite_exercises")
-          .insert([{ user_id: session.user.id, name: trimmedName }]);
-      }
+    setIsSubmitting(true);
+    const { data: { session } } = await supabase.auth.getSession();
 
-      const { error } = await supabase.from("workouts").insert([
-        {
-          exercise: trimmedName,
-          weight,
-          reps,
-          notes: notes.trim() || null,
-          user_id: session.user.id,
-        },
-      ]);
-
-      if (error) throw error;
-      router.push("/");
-    } catch (e) {
-      console.error(e);
-      setIsSubmitting(false);
+    // 💡 新しいカスタム種目だった場合は、お気に入りリストに自動追加
+    if (isCustomMode && !masterExercises.includes(finalName)) {
+      await supabase
+        .from("favorite_exercises")
+        .insert([{ user_id: session?.user.id, name: finalName }]);
     }
+
+    // 💡 備考(notes)も含めてインサート
+    await supabase.from('workouts').insert([{ 
+      exercise: finalName, 
+      weight, 
+      reps, 
+      notes: notes.trim() || null,
+      user_id: session?.user.id 
+    }]);
+
+    router.push("/");
   };
 
+  // カスタム入力時のabc順フィルタリングサジェスト
   const filteredSuggestions = masterExercises.filter((ex) =>
-    ex.toLowerCase().includes(exerciseName.toLowerCase())
+    ex.toLowerCase().includes(customExercise.toLowerCase())
   );
 
+  if (isLoading) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-orange-500 font-black italic">LOADING...</div>;
+
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-4 pb-20 flex flex-col items-center">
-      <div className="w-full max-w-md flex flex-col gap-6">
-        <div>
-          <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back to TOP</Link>
-        </div>
-
-        <h1 className="text-2xl font-bold text-center text-yellow-400 uppercase">assistance</h1>
-
-        {/* 種目名入力 ＆ サジェスト */}
-        <div className="relative">
-          <label className="text-xs text-gray-400 block mb-1">Exercise Name</label>
-          <input
-            type="text"
-            value={exerciseName}
-            onChange={(e) => { setExerciseName(e.target.value); setShowSuggestions(true); }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-            placeholder="種目名を入力"
-            className="w-full bg-gray-800 text-white p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-yellow-500"
-          />
-
-          {showSuggestions && filteredSuggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl max-h-40 overflow-y-auto shadow-2xl">
-              {filteredSuggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onMouseDown={() => { setExerciseName(suggestion); setShowSuggestions(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 border-b border-gray-700/50 last:border-none"
-                >
-                  {suggestion}
-                </button>
-              ))}
+    <main className="min-h-screen bg-gray-900 text-white p-6 pb-32 flex flex-col items-center">
+      <div className="w-full max-w-md mb-6"><Link href="/" className="text-gray-400 text-sm">← Back to TOP</Link></div>
+      
+      {/* TITLE: Orange Glow (完全復元) */}
+      <h1 className="text-3xl font-black mb-8 text-orange-500 italic tracking-tighter drop-shadow-[0_0_15px_rgba(249,115,22,0.6)]">ASSISTANCE</h1>
+      
+      <div className="w-full max-w-md space-y-6">
+        {/* MENU SELECT (サジェストUIの追加) */}
+        <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700/50 shadow-xl relative">
+          <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">MENU</p>
+          {!isCustomMode ? (
+            <select value={exercise} onChange={(e) => setExercise(e.target.value)} className="w-full bg-gray-900 text-white p-4 rounded-xl border border-gray-700 font-bold appearance-none">
+              {/* 💡 初期マスター配列（マージされたabc順）から選択可能に */}
+              {masterExercises.map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
+            </select>
+          ) : (
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="EXERCISE NAME..." 
+                value={customExercise} 
+                onChange={(e) => { setCustomExercise(e.target.value); setShowSuggestions(true); }} 
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                className="w-full bg-gray-900 text-white p-4 rounded-xl border border-orange-500 outline-none font-bold" 
+              />
+              {/* 💡 カスタム入力時のabc順サジェストウィンドウ */}
+              {showSuggestions && filteredSuggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-2 bg-gray-900 border border-gray-700 rounded-xl max-h-40 overflow-y-auto shadow-2xl">
+                  {filteredSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onMouseDown={() => { setCustomExercise(suggestion); setShowSuggestions(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 border-b border-gray-800/50 last:border-none font-bold"
+                    >
+                      {suggestion.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+          <button onClick={() => setIsCustomMode(!isCustomMode)} className="text-orange-500 text-[10px] underline w-full text-center mt-4 uppercase font-black">
+            {isCustomMode ? "Select from list" : "Enter custom exercise"}
+          </button>
         </div>
 
-        {/* 元のデザイン通りの重量設定カード */}
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center">
-          <label className="text-xs text-gray-400 block mb-2">WEIGHT (kg)</label>
-          <div className="flex items-center justify-between">
-            <button onClick={() => setWeight(Math.max(0, weight - 2.5))} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-2.5</button>
-            <input type="number" step="0.25" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className="w-24 bg-transparent text-center text-2xl font-bold focus:outline-none" />
-            <button onClick={() => setWeight(weight + 2.5)} className="w-12 h-12 bg-yellow-500 text-gray-900 rounded-full font-bold hover:bg-yellow-400">+2.5</button>
+        {/* WEIGHT: Orange Neon Glow (完全復元) */}
+        <div className="bg-gray-800/80 p-8 rounded-[40px] border border-gray-700 shadow-2xl relative">
+          <p className="text-gray-500 text-xs mb-6 text-center font-black italic tracking-widest">WEIGHT (kg)</p>
+          <div className="flex items-center justify-between gap-6">
+            <button onClick={() => setWeight(w => Math.max(0, w - 2.5))} className="w-16 h-16 bg-gray-700 rounded-full text-2xl font-black active:scale-90">-</button>
+            <div className="flex-1 flex justify-center">
+              {isWeightInputMode ? (
+                <input type="number" inputMode="decimal" autoFocus onBlur={() => setIsWeightInputMode(false)}
+                  value={weight === 0 ? "" : weight} onChange={(e) => setWeight(Math.max(0, Number(e.target.value)))}
+                  className="w-32 bg-transparent text-6xl font-black text-center text-orange-500 outline-none border-b-4 border-orange-600" />
+              ) : (
+                <div onClick={() => setIsWeightInputMode(true)} className="text-7xl font-black text-center text-orange-500 cursor-pointer drop-shadow-[0_0_25px_rgba(249,115,22,0.5)]">{weight}</div>
+              )}
+            </div>
+            <button onClick={() => setWeight(w => w + 2.5)} className="w-16 h-16 bg-orange-600 rounded-full text-2xl font-black shadow-lg shadow-orange-900/40 active:scale-90">+</button>
           </div>
         </div>
 
-        {/* 元のデザイン通りのレップ設定カード */}
-        <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center">
-          <label className="text-xs text-gray-400 block mb-2">REPS</label>
-          <div className="flex items-center justify-between">
-            <button onClick={() => setReps(Math.max(0, reps - 1))} className="w-12 h-12 bg-gray-700 rounded-full font-bold hover:bg-gray-600">-</button>
-            <input type="number" value={reps} onChange={(e) => setReps(Number(e.target.value))} className="w-24 bg-transparent text-center text-2xl font-bold focus:outline-none" />
-            <button onClick={() => setReps(reps + 1)} className="w-12 h-12 bg-yellow-500 text-gray-900 rounded-full font-bold hover:bg-yellow-400">+</button>
+        {/* REPS: Amber/Yellow Neon Glow (完全復元) */}
+        <div className="bg-gray-800/80 p-8 rounded-[40px] border border-gray-700 shadow-2xl">
+          <p className="text-gray-500 text-xs mb-6 text-center font-black italic tracking-widest">REPS</p>
+          <div className="flex items-center justify-between gap-6">
+            <button onClick={() => setReps(r => Math.max(0, r - 1))} className="w-16 h-16 bg-gray-700 rounded-full text-3xl font-bold active:scale-90">-</button>
+            <div className="flex-1 text-7xl font-black text-center text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.5)]">
+              {reps}
+            </div>
+            <button onClick={() => setReps(r => r + 1)} className="w-16 h-16 bg-amber-600 rounded-full text-3xl font-bold text-black active:scale-90">+</button>
           </div>
         </div>
 
-        {/* 備考欄 */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">NOTES (Optional)</label>
-          <textarea
-            value={notes}
+        {/* 💡 NOTES: 元のデザインの雰囲気に完全に調和させた備考カード */}
+        <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700/50 shadow-xl">
+          <p className="text-gray-500 text-[10px] mb-3 text-center font-black italic tracking-widest">NOTES (OPTIONAL)</p>
+          <textarea 
+            value={notes} 
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="メモを残せます"
-            className="w-full bg-gray-800 text-white p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-yellow-500"
+            placeholder="1REP目は楽だった / ラストセット..."
+            className="w-full bg-gray-900 text-white p-4 rounded-xl border border-gray-700 outline-none font-bold text-sm italic placeholder:text-gray-700 focus:border-orange-500 transition-all"
             rows={2}
           />
         </div>
 
-        <button
-          onClick={handleRecord}
-          disabled={isSubmitting || !exerciseName.trim()}
-          className="w-full py-4 bg-yellow-500 text-gray-900 rounded-2xl font-bold hover:bg-yellow-400 disabled:opacity-50 transition-all text-lg"
-        >
-          {isSubmitting ? "RECORDING..." : "RECORD SET"}
+        {/* RECORD SET BUTTON (完全復元) */}
+        <button onClick={handleRecord} disabled={isSubmitting} className="w-full py-6 bg-white text-black font-black text-3xl rounded-3xl hover:bg-gray-200 active:scale-95 shadow-xl transition-all">
+          {isSubmitting ? "SAVING..." : "RECORD SET"}
         </button>
       </div>
     </main>
