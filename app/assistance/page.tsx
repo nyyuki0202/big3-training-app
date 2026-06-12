@@ -7,9 +7,35 @@ import { supabase } from "@/lib/supabaseClient";
 
 // 💡 初期表示用の王道リスト
 const DEFAULT_EXERCISES = [
-  "Incline Dumbbell Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
-  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown", "Shoulder Press", 
-  "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift"
+  "Face Pull",
+  "Iso-Lateral Row",
+  "Hack Squat",
+  "Narrow Press",
+  "Smith Narrow Press",
+  "Smith Squat",
+  "Smith Shoulder Press",
+  "Smith Incline Press",
+  "Dumbbell Preacher Curl",
+  "One-hand Dumbbell Row",
+  "One-hand Arm Curl",
+  "Barbbell Curl",
+  "Dumbbell Press",
+  "Incline Dumbbell Press",
+  "Incline Dumbbell Curl",
+  "Lying Triceps Extension",
+  "Lateral Raise",
+  "Chin-Up",
+  "Dips",
+  "Lat Pulldown",
+  "Shoulder Press", 
+  "Leg Extension",
+  "Bulgarian Squat",
+  "Leg Curl",
+  "Leg Press",
+  "Romanian Deadlift",
+  "Tempo Deadlift",
+  "Tempo Bench Press",
+  "Tempo Squat"
 ];
 
 export default function AssistancePage() {
