@@ -35,7 +35,8 @@ const DEFAULT_EXERCISES = [
   "Romanian Deadlift",
   "Tempo Deadlift",
   "Tempo Bench Press",
-  "Tempo Squat"
+  "Tempo Squat",
+  "T-Bar Row"
 ];
 
 export default function AssistancePage() {
