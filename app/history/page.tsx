@@ -28,11 +28,16 @@ type DailyLog = {
   assistance: OtherData[];
 };
 
+// アシスタンス画面と完全共通の王道リスト
 const DEFAULT_EXERCISES = [
-  "Bench Press", "Squat", "Deadlift",
-  "Bulgarian Squat", "Cable Crossover", "Dumbbell Fly", "Dumbbell Row",
-  "Incline Dumbbell Press", "Lat Pulldown", "Leg Curl", "Leg Extension",
-  "Leg Press", "Romanian Deadlift", "Seated Row", "Side Lateral Raise"
+  "Face Pull", "Iso-Lateral Row", "Hack Squat", "Narrow Press", "Smith Narrow Press",
+  "Smith Squat", "Smith Shoulder Press", "Smith Incline Press", "Dumbbell Preacher Curl",
+  "One-hand Dumbbell Row", "One-hand Arm Curl", "Barbbell Curl", "Dumbbell Press",
+  "Incline Dumbbell Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
+  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown", "Shoulder Press", 
+  "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift",
+  "Tempo Deadlift", "Tempo Bench Press", "Tempo Squat", "T-Bar Row",
+  "bench", "squat", "deadlift" // BIG3も過去ログ追加で選べるように網羅
 ];
 
 const calculateE1RM = (weight: number, reps: number) => {
@@ -44,20 +49,22 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // 編集用モーダルのステート
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number, notes?: string} | null>(null);
   
-  // 💡 過去ログ追加モーダル用のステート（日付＋アシスタンス等でお馴染みの入力項目）
+  // 💡 過去ログ追加用モーダルのステート（アシスタンスの入力項目を完全網羅）
   const [addingItem, setAddingItem] = useState<{
     date: string;
+    isCustomMode: boolean;
     exercise: string;
-    isCustom: boolean;
+    customExercise: string;
     weight: number;
     reps: number;
     notes: string;
     isWeightInputMode: boolean;
   } | null>(null);
 
-  // サジェスト用のマスターリスト
+  // サジェスト用のマスター配列
   const [masterExercises, setMasterExercises] = useState<string[]>(DEFAULT_EXERCISES);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const isFetched = useRef(false);
@@ -135,17 +142,17 @@ export default function HistoryPage() {
     if (!error) { setEditingItem(null); fetchLogs(); }
   };
 
-  // 過去ログ追加の実行
+  // 💡 過去ログ追加の保存処理
   const handleAddRecord = async () => {
     if (!addingItem) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const finalName = addingItem.exercise.trim();
+    const finalName = addingItem.isCustomMode ? addingItem.customExercise.trim() : addingItem.exercise;
     if (!finalName) return;
 
-    // 新規カスタム種目ならマスターへ追加
-    if (!masterExercises.includes(finalName)) {
+    // 新規カスタム種目ならお気に入りリストへ自動追加
+    if (addingItem.isCustomMode && !masterExercises.includes(finalName)) {
       await supabase.from("favorite_exercises").insert([{ user_id: session.user.id, name: finalName }]);
     }
 
@@ -174,13 +181,13 @@ export default function HistoryPage() {
   };
 
   const filteredSuggestions = masterExercises.filter((ex) =>
-    ex.toLowerCase().includes(addingItem?.exercise.toLowerCase() || "")
+    ex.toLowerCase().includes(addingItem?.customExercise.toLowerCase() || "")
   );
 
   return (
     <main className="min-h-screen bg-gray-900 text-white relative p-4 pb-20">
       
-      {/* 編集モーダル */}
+      {/* --- 編集モーダル --- */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 w-full max-w-md p-6 rounded-2xl border border-gray-600 shadow-2xl">
@@ -216,84 +223,117 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* 💡 過去ログ追加モーダル（アシスタンスのUIを完全融合） */}
+      {/* --- 💡 過去ログ追加モーダル（アシスタンス画面の全デザイン＆ロジックを完全統合） --- */}
       {addingItem && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-gray-800 w-full max-w-md p-6 rounded-3xl border border-gray-700 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-gray-800/95 w-full max-w-md p-6 rounded-[32px] border border-gray-700 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             
-            <h3 className="text-xl font-black text-center text-orange-500 uppercase tracking-widest">ADD PAST RECORD</h3>
+            <h3 className="text-xl font-black text-center text-orange-500 italic tracking-tighter uppercase drop-shadow-[0_0_10px_rgba(249,115,22,0.4)]">
+              ADD PAST RECORD
+            </h3>
             
-            {/* 日付選択 */}
-            <div>
-              <label className="text-[10px] text-gray-500 block mb-1 font-black uppercase tracking-widest">DATE</label>
+            {/* 💡 日付選択エリア（追加機能） */}
+            <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700/50">
+              <p className="text-gray-500 text-[10px] mb-2 text-center font-black italic tracking-widest">DATE</p>
               <input 
                 type="date" 
                 value={addingItem.date} 
                 onChange={(e) => setAddingItem({...addingItem, date: e.target.value})} 
-                className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 font-bold text-center" 
+                className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 font-bold text-center text-sm" 
               />
             </div>
 
-            {/* 種目選択 ＆ サジェスト */}
-            <div className="relative">
-              <label className="text-[10px] text-gray-500 block mb-1 font-black uppercase tracking-widest">EXERCISE</label>
-              <input
-                type="text"
-                value={addingItem.exercise}
-                onChange={(e) => { setAddingItem({...addingItem, exercise: e.target.value}); setShowSuggestions(true); }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                placeholder="種目を入力..."
-                className="w-full bg-gray-900 text-white p-3 rounded-xl border border-orange-500 outline-none font-bold text-sm"
-              />
-              {showSuggestions && filteredSuggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-gray-900 border border-gray-700 rounded-xl max-h-40 overflow-y-auto shadow-2xl">
-                  {filteredSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onMouseDown={() => { setAddingItem({...addingItem, exercise: suggestion}); setShowSuggestions(false); }}
-                      className="w-full text-left px-4 py-2.5 text-xs text-gray-300 hover:bg-gray-800 border-b border-gray-800/50 font-bold"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+            {/* MENU SELECT（アシスタンス画面と完全同等） */}
+            <div className="bg-gray-800/50 p-5 rounded-3xl border border-gray-700/50 shadow-xl relative">
+              <p className="text-gray-500 text-[10px] mb-3 text-center font-black italic tracking-widest">MENU</p>
+              {!addingItem.isCustomMode ? (
+                <select 
+                  value={addingItem.exercise} 
+                  onChange={(e) => setAddingItem({...addingItem, exercise: e.target.value})} 
+                  className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 font-bold appearance-none text-sm"
+                >
+                  {masterExercises.map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
+                </select>
+              ) : (
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="EXERCISE NAME..." 
+                    value={addingItem.customExercise} 
+                    onChange={(e) => { setAddingItem({...addingItem, customExercise: e.target.value}); setShowSuggestions(true); }} 
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
+                    className="w-full bg-gray-900 text-white p-3 rounded-xl border border-orange-500 outline-none font-bold text-sm" 
+                  />
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-2 bg-gray-900 border border-gray-700 rounded-xl max-h-40 overflow-y-auto shadow-2xl">
+                      {filteredSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          onMouseDown={() => { setAddingItem({...addingItem, customExercise: suggestion}); setShowSuggestions(false); }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-gray-300 hover:bg-gray-800 border-b border-gray-800/50 font-bold"
+                        >
+                          {suggestion.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+              <button 
+                onClick={() => setAddingItem({...addingItem, isCustomMode: !addingItem.isCustomMode})} 
+                className="text-orange-500 text-[10px] underline w-full text-center mt-3 uppercase font-black"
+              >
+                {addingItem.isCustomMode ? "Select from list" : "Enter custom exercise"}
+              </button>
             </div>
 
-            {/* WEIGHT 巨大ネオンカード */}
-            <div className="bg-gray-900/60 p-6 rounded-3xl border border-gray-700 text-center">
-              <p className="text-gray-500 text-[10px] mb-4 font-black tracking-widest">WEIGHT (kg)</p>
+            {/* WEIGHT: Orange Neon Glow */}
+            <div className="bg-gray-800/80 p-6 rounded-[32px] border border-gray-700 shadow-xl relative">
+              <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">WEIGHT (kg)</p>
               <div className="flex items-center justify-between gap-4">
-                <button onClick={() => setAddingItem({...addingItem, weight: Math.max(0, addingItem.weight - 2.5)})} className="w-12 h-12 bg-gray-800 rounded-full font-black text-xl active:scale-90">-</button>
+                <button onClick={() => setAddingItem({...addingItem, weight: Math.max(0, addingItem.weight - 2.5)})} className="w-12 h-12 bg-gray-700 rounded-full text-xl font-black active:scale-90">-</button>
                 <div className="flex-1 flex justify-center">
-                  <input type="number" step="0.25" value={addingItem.weight} onChange={(e) => setAddingItem({...addingItem, weight: Number(e.target.value)})} className="w-32 bg-transparent text-5xl font-black text-center text-orange-500 outline-none" />
+                  {addingItem.isWeightInputMode ? (
+                    <input type="number" inputMode="decimal" autoFocus onBlur={() => setAddingItem({...addingItem, isWeightInputMode: false})}
+                      value={addingItem.weight === 0 ? "" : addingItem.weight} onChange={(e) => setAddingItem({...addingItem, weight: Math.max(0, Number(e.target.value))})}
+                      className="w-28 bg-transparent text-5xl font-black text-center text-orange-500 outline-none border-b-4 border-orange-600" />
+                  ) : (
+                    <div onClick={() => setAddingItem({...addingItem, isWeightInputMode: true})} className="text-6xl font-black text-center text-orange-500 cursor-pointer drop-shadow-[0_0_20px_rgba(249,115,22,0.5)]">{addingItem.weight}</div>
+                  )}
                 </div>
-                <button onClick={() => setAddingItem({...addingItem, weight: addingItem.weight + 2.5})} className="w-12 h-12 bg-orange-600 rounded-full font-black text-xl active:scale-90">+</button>
+                <button onClick={() => setAddingItem({...addingItem, weight: addingItem.weight + 2.5})} className="w-12 h-12 bg-orange-600 rounded-full text-xl font-black shadow-lg shadow-orange-900/40 active:scale-90">+</button>
               </div>
             </div>
 
-            {/* REPS 巨大ネオンカード */}
-            <div className="bg-gray-900/60 p-6 rounded-3xl border border-gray-700 text-center">
-              <p className="text-gray-500 text-[10px] mb-4 font-black tracking-widest">REPS</p>
+            {/* REPS: Amber/Yellow Neon Glow */}
+            <div className="bg-gray-800/80 p-6 rounded-[32px] border border-gray-700 shadow-xl">
+              <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">REPS</p>
               <div className="flex items-center justify-between gap-4">
-                <button onClick={() => setAddingItem({...addingItem, reps: Math.max(0, addingItem.reps - 1)})} className="w-12 h-12 bg-gray-800 rounded-full font-black text-xl active:scale-90">-</button>
-                <div className="flex-1 flex justify-center">
-                  <input type="number" value={addingItem.reps} onChange={(e) => setAddingItem({...addingItem, reps: Number(e.target.value)})} className="w-32 bg-transparent text-5xl font-black text-center text-amber-400 outline-none" />
+                <button onClick={() => setAddingItem({...addingItem, reps: Math.max(0, addingItem.reps - 1)})} className="w-12 h-12 bg-gray-700 rounded-full text-2xl font-bold active:scale-90">-</button>
+                <div className="flex-1 text-6xl font-black text-center text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]">
+                  {addingItem.reps}
                 </div>
-                <button onClick={() => setAddingItem({...addingItem, reps: addingItem.reps + 1})} className="w-12 h-12 bg-amber-600 rounded-full font-black text-xl active:scale-90 text-black">+</button>
+                <button onClick={() => setAddingItem({...addingItem, reps: addingItem.reps + 1})} className="w-12 h-12 bg-amber-600 rounded-full text-2xl font-bold text-black active:scale-90">+</button>
               </div>
             </div>
 
             {/* NOTES */}
-            <div>
-              <label className="text-[10px] text-gray-500 block mb-1 font-black uppercase tracking-widest">NOTES</label>
-              <textarea value={addingItem.notes} onChange={(e) => setAddingItem({...addingItem, notes: e.target.value})} className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 text-sm italic" rows={2} placeholder="メモ..." />
+            <div className="bg-gray-800/50 p-5 rounded-3xl border border-gray-700/50 shadow-xl">
+              <p className="text-gray-500 text-[10px] mb-2 text-center font-black italic tracking-widest">NOTES (OPTIONAL)</p>
+              <textarea 
+                value={addingItem.notes} 
+                onChange={(e) => setAddingItem({...addingItem, notes: e.target.value})}
+                placeholder="メモを入力..."
+                className="w-full bg-gray-900 text-white p-3 rounded-xl border border-gray-700 outline-none font-bold text-sm italic placeholder:text-gray-700 focus:border-orange-500 transition-all"
+                rows={2}
+              />
             </div>
 
+            {/* モーダル内ボタン */}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setAddingItem(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-2xl font-bold">Cancel</button>
-              <button onClick={handleAddRecord} className="flex-1 py-4 bg-white text-gray-900 rounded-2xl font-black shadow-xl">ADD 🚀</button>
+              <button onClick={handleAddRecord} className="flex-1 py-4 bg-white text-black font-black text-lg rounded-2xl hover:bg-gray-200 active:scale-95 shadow-xl transition-all">ADD 🚀</button>
             </div>
           </div>
         </div>
@@ -304,7 +344,7 @@ export default function HistoryPage() {
         <div className="flex justify-between items-center mb-6">
           <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back</Link>
           <button 
-            onClick={() => setAddingItem({ date: getTodayStr(), exercise: 'Bench Press', isCustom: false, weight: 60, reps: 10, notes: '', isWeightInputMode: false })}
+            onClick={() => setAddingItem({ date: new Date().toISOString().slice(0, 10), isCustomMode: false, exercise: DEFAULT_EXERCISES[0], customExercise: '', weight: 60, reps: 10, notes: '', isWeightInputMode: false })}
             className="text-green-400 hover:text-green-300 text-sm font-bold flex items-center gap-1 border border-green-800 bg-green-900/30 px-3 py-1.5 rounded-lg active:scale-95 transition-all shadow-md"
           >
             + ADD PAST RECORD 📝
