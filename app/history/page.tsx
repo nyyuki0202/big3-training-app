@@ -6,25 +6,22 @@ import { supabase } from "@/lib/supabaseClient";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 
-// 1セットごとのデータ型
 type SetData = {
   id: number;
   weight: number;
   reps: number;
   e1rm: number;
-  notes?: string; // 💡 追加
+  notes?: string;
 };
 
-// 補助種目のデータ型
 type OtherData = {
   id: number;
   name: string;
   weight: number;
   reps: number;
-  notes?: string; // 💡 追加
+  notes?: string;
 };
 
-// 1日分のデータ型
 type DailyLog = {
   date: string;
   bench: SetData[];
@@ -42,7 +39,6 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 💡 型に notes を追加
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number, notes?: string} | null>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   
@@ -58,11 +54,12 @@ export default function HistoryPage() {
       return;
     }
 
+    // 💡 取得時の並び：created_at の昇順（古い順＝やった順）にすることで、一日の最初のセットが最初に配列に入るようにする
     const { data, error } = await supabase
       .from('workouts')
       .select('*')
       .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true }); // ← ここを true（古い順・やった順）に変更
 
     if (error) {
       console.error("Error:", error);
@@ -89,7 +86,6 @@ export default function HistoryPage() {
         const dayEntry = groupedMap.get(dateStr)!;
         const exercise = log.exercise;
         const currentE1RM = calculateE1RM(log.weight, log.reps);
-        // 💡 notes をデータに含める
         const setData: SetData = { id: log.id, weight: log.weight, reps: log.reps, e1rm: currentE1RM, notes: log.notes };
 
         if (exercise === 'bench') {
@@ -104,20 +100,17 @@ export default function HistoryPage() {
             name: exercise,
             weight: log.weight,
             reps: log.reps,
-            notes: log.notes // 💡 追加
+            notes: log.notes
           });
         }
       });
 
-      const processedData = Array.from(groupedMap.values()).map(entry => {
-        (['bench', 'squat', 'deadlift'] as const).forEach(key => {
-          entry[key].sort((a, b) => b.e1rm - a.e1rm);
-          entry[key] = entry[key];
-        });
-        return entry;
-      });
+      // 💡 セットの並び替え（e1rm順）を廃止し、やった順番（配列のまま）に維持する
+      const processedData = Array.from(groupedMap.values());
+      // 全体の「日付」の並びを新しい順（今日が上）にしたい場合はここで reverse() など調整可能ですが、
+      // まずはセッション内のセット順が意図通りになることを確認します。
 
-      setTableData(processedData);
+      setTableData(processedData.reverse()); // 日付自体は新しい日が上に来るように反転
     }
     setLoading(false);
   };
@@ -219,13 +212,12 @@ export default function HistoryPage() {
 
   const handleUpdate = async () => {
     if (!editingItem) return;
-    // 💡 データベースの更新に notes を含める
     const { error } = await supabase
       .from('workouts')
       .update({ 
         weight: editingItem.weight, 
         reps: editingItem.reps,
-        notes: editingItem.notes // 💡 追加
+        notes: editingItem.notes 
       })
       .eq('id', editingItem.id);
     if (!error) { setEditingItem(null); fetchLogs(); }
@@ -283,7 +275,6 @@ export default function HistoryPage() {
                   <button onClick={() => setEditingItem({...editingItem, reps: editingItem.reps + 1})} className="w-12 h-12 shrink-0 bg-blue-600 rounded-full font-bold hover:bg-blue-500">+</button>
                 </div>
               </div>
-              {/* 💡 編集モーダルに備考欄を追加 */}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">NOTES</label>
                 <textarea
@@ -332,7 +323,6 @@ export default function HistoryPage() {
                           <div>
                             {set.weight}kg × {set.reps} <span className="text-gray-500">({set.e1rm})</span>
                           </div>
-                          {/* 💡 備考があれば表示 */}
                           {set.notes && <div className="text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">≫ {set.notes}</div>}
                         </button>
                       ))}
@@ -369,50 +359,44 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 )}
-              {/* --- 補助種目の表示セクション --- */}
-              {day.assistance.length > 0 && (
-                <div>
-                  <p className="text-yellow-400 font-bold text-sm mb-2 uppercase tracking-widest">assistance</p>
-
-                  <div className="space-y-4">
-                    {/* 💡 種目名ごとにグループ化して処理 */}
-                    {Object.entries(
-                      day.assistance.reduce((acc, set) => {
-                        if (!acc[set.name]) acc[set.name] = [];
-                        acc[set.name].push(set);
-                        return acc;
-                      }, {} as Record<string, OtherData[]>)
-                    ).map(([exerciseName, sets]) => (
-                      <div key={exerciseName} className="flex flex-col gap-1.5">
-                        {/* 💡 種目名はここで1回だけ表示 */}
-                        <p className="text-[14px] text-white-400 ml-1 font-bold uppercase tracking-tighter">
-                          {exerciseName}
-                        </p>
-
-                        <div className="flex flex-wrap gap-2">
-                          {sets.map((set) => (
-                            <button
-                              key={set.id}
-                              onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
-                              className="bg-gray-900 px-2 py-1 rounded border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
-                            >
-                              <div className="text-xs text-white">
-                                {set.weight}kg × {set.reps}
-                              </div>
-                              {/* 備考があれば表示 */}
-                              {set.notes && (
-                                <div className="text-[9px] text-gray-500 italic mt-0.5 max-w-[80px] truncate">
-                                  ≫ {set.notes}
+                {day.assistance.length > 0 && (
+                  <div>
+                    <p className="text-yellow-400 font-bold text-sm mb-2 uppercase tracking-widest">assistance</p>
+                    <div className="space-y-4">
+                      {Object.entries(
+                        day.assistance.reduce((acc, set) => {
+                          if (!acc[set.name]) acc[set.name] = [];
+                          acc[set.name].push(set);
+                          return acc;
+                        }, {} as Record<string, OtherData[]>)
+                      ).map(([exerciseName, sets]) => (
+                        <div key={exerciseName} className="flex flex-col gap-1.5">
+                          <p className="text-[14px] text-gray-300 ml-1 font-bold uppercase tracking-tighter">
+                            {exerciseName}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {sets.map((set) => (
+                              <button
+                                key={set.id}
+                                onClick={() => setEditingItem({id: set.id, exercise: set.name, weight: set.weight, reps: set.reps, notes: set.notes})}
+                                className="bg-gray-900 px-2 py-1 rounded border border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-yellow-500 text-left transition-all active:scale-95"
+                              >
+                                <div className="text-xs text-white">
+                                  {set.weight}kg × {set.reps}
                                 </div>
-                              )}
-                            </button>
-                          ))}
+                                {set.notes && (
+                                  <div className="text-[9px] text-gray-500 italic mt-0.5 max-w-[80px] truncate">
+                                    ≫ {set.notes}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               </div>
             ))}
           </div>
@@ -427,9 +411,9 @@ export default function HistoryPage() {
                 <span>DATE</span>
                 <button onClick={() => setShowDownloadModal(true)} title="Download Excel" className="bg-green-700 hover:bg-green-600 text-white text-[10px] p-1 rounded">⬇️XLSX</button>
               </th>
-              <th className="p-2 border-b border-r border-gray-600 text-red-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">BENCH (Top 3)</th>
-              <th className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">SQUAT (Top 3)</th>
-              <th className="p-2 border-b border-r border-gray-600 text-green-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">DEADLIFT (Top 3)</th>
+              <th className="p-2 border-b border-r border-gray-600 text-red-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">BENCH (Top 3)順</th>
+              <th className="p-2 border-b border-r border-gray-600 text-blue-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">SQUAT</th>
+              <th className="p-2 border-b border-r border-gray-600 text-green-400 font-bold sticky top-0 bg-gray-700 z-40 min-w-[140px]">DEADLIFT</th>
               <th className="p-2 border-b border-r border-gray-600 text-yellow-400 font-bold min-w-[200px] sticky top-0 bg-gray-700 z-40">ASSISTANCE</th>
             </tr>
           </thead>
@@ -447,7 +431,6 @@ export default function HistoryPage() {
                           <span className="font-bold text-gray-200">{set.weight}k×{set.reps}</span>
                           <span className="font-mono text-red-400">PV:{set.e1rm}</span>
                         </div>
-                        {/* 💡 横画面のテーブル内でも備考を表示 */}
                         {set.notes && <div className="text-[9px] text-gray-500 italic truncate w-full">≫ {set.notes}</div>}
                       </button>
                     ))}
