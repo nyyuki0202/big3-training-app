@@ -7,36 +7,13 @@ import { supabase } from "@/lib/supabaseClient";
 
 // 💡 初期表示用の王道リスト
 const DEFAULT_EXERCISES = [
-  "Face Pull",
-  "Iso-Lateral Row",
-  "Hack Squat",
-  "Narrow Press",
-  "Smith Narrow Press",
-  "Smith Squat",
-  "Smith Shoulder Press",
-  "Smith Incline Press",
-  "Dumbbell Preacher Curl",
-  "One-hand Dumbbell Row",
-  "One-hand Arm Curl",
-  "Barbbell Curl",
-  "Dumbbell Press",
-  "Incline Dumbbell Press",
-  "Incline Dumbbell Curl",
-  "Lying Triceps Extension",
-  "Lateral Raise",
-  "Chin-Up",
-  "Dips",
-  "Lat Pulldown",
-  "Shoulder Press", 
-  "Leg Extension",
-  "Bulgarian Squat",
-  "Leg Curl",
-  "Leg Press",
-  "Romanian Deadlift",
-  "Tempo Deadlift",
-  "Tempo Bench Press",
-  "Tempo Squat",
-  "T-Bar Row"
+  "Face Pull", "Iso-Lateral Row", "Hack Squat", "Narrow Press", "Smith Narrow Press",
+  "Smith Squat", "Smith Shoulder Press", "Smith Incline Press", "Dumbbell Preacher Curl",
+  "One-hand Dumbbell Row", "One-hand Arm Curl", "Barbbell Curl", "Dumbbell Press",
+  "Incline Dumbbell Press","Incline Bench Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
+  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown","Seated Row","Shoulder Press", 
+  "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift",
+  "Tempo Deadlift", "Tempo Bench Press", "Tempo Squat", "T-Bar Row"
 ];
 
 export default function AssistancePage() {
@@ -96,7 +73,7 @@ export default function AssistancePage() {
     fetchLastRecord();
   }, [exercise, isCustomMode, customExercise]);
 
-  const handleRecord = async () => {
+const handleRecord = async () => {
     if (isSubmitting) return;
     const finalName = isCustomMode ? customExercise.trim() : exercise;
     if (!finalName) return;
@@ -104,16 +81,19 @@ export default function AssistancePage() {
     setIsSubmitting(true);
     const { data: { session } } = await supabase.auth.getSession();
 
-    // 💡 新しいカスタム種目だった場合は、お気に入りリストに自動追加
+    // 💡 データベースに入れる直前で「小文字化 ＆ 余計な空白の排除」を適用して完全正規化
+    const normalizedExercise = finalName.toLowerCase().trim().replace(/\s+/g, ' ');
+
+    // 新しいカスタム種目だった場合は、お気に入りリストに自動追加
     if (isCustomMode && !masterExercises.includes(finalName)) {
       await supabase
         .from("favorite_exercises")
         .insert([{ user_id: session?.user.id, name: finalName }]);
     }
 
-    // 💡 備考(notes)も含めてインサート
+    // 💡 正規化した normalizedExercise を exercise としてインサート
     await supabase.from('workouts').insert([{ 
-      exercise: finalName, 
+      exercise: normalizedExercise, 
       weight, 
       reps, 
       notes: notes.trim() || null,
