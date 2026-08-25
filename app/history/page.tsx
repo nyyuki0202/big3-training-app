@@ -28,16 +28,15 @@ type DailyLog = {
   assistance: OtherData[];
 };
 
-// アシスタンス画面と完全共通の王道リスト
 const DEFAULT_EXERCISES = [
   "Face Pull", "Iso-Lateral Row", "Hack Squat", "Narrow Press", "Smith Narrow Press",
   "Smith Squat", "Smith Shoulder Press", "Smith Incline Press", "Dumbbell Preacher Curl",
   "One-hand Dumbbell Row", "One-hand Arm Curl", "Barbbell Curl", "Dumbbell Press",
-  "Incline Dumbbell Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
-  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown", "Shoulder Press", 
+  "Incline Dumbbell Press","Incline Bench Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
+  "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown","Seated Row","Shoulder Press", 
   "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift",
   "Tempo Deadlift", "Tempo Bench Press", "Tempo Squat", "T-Bar Row",
-  "bench", "squat", "deadlift" // BIG3も過去ログ追加で選べるように網羅
+  "bench", "squat", "deadlift"
 ];
 
 const calculateE1RM = (weight: number, reps: number) => {
@@ -49,10 +48,8 @@ export default function HistoryPage() {
   const [tableData, setTableData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 編集用モーダルのステート
   const [editingItem, setEditingItem] = useState<{id: number, exercise: string, weight: number, reps: number, notes?: string} | null>(null);
   
-  // 💡 過去ログ追加用モーダルのステート（アシスタンスの入力項目を完全網羅）
   const [addingItem, setAddingItem] = useState<{
     date: string;
     isCustomMode: boolean;
@@ -64,7 +61,6 @@ export default function HistoryPage() {
     isWeightInputMode: boolean;
   } | null>(null);
 
-  // サジェスト用のマスター配列
   const [masterExercises, setMasterExercises] = useState<string[]>(DEFAULT_EXERCISES);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const isFetched = useRef(false);
@@ -95,14 +91,27 @@ export default function HistoryPage() {
         }
 
         const dayEntry = groupedMap.get(dateStr)!;
-        const exercise = log.exercise;
+        // 💡 表記揺れや大文字小文字を安全に吸収するための正規化
+        const exerciseLower = log.exercise ? log.exercise.toLowerCase().trim() : "";
         const currentE1RM = calculateE1RM(log.weight, log.reps);
         const setData: SetData = { id: log.id, weight: log.weight, reps: log.reps, e1rm: currentE1RM, notes: log.notes };
 
-        if (exercise === 'bench') dayEntry.bench.push(setData);
-        else if (exercise === 'squat') dayEntry.squat.push(setData);
-        else if (exercise === 'deadlift') dayEntry.deadlift.push(setData);
-        else dayEntry.assistance.push({ id: log.id, name: exercise, weight: log.weight, reps: log.reps, notes: log.notes });
+        if (exerciseLower === 'bench' || exerciseLower === 'bench press') {
+          dayEntry.bench.push(setData);
+        } else if (exerciseLower === 'squat') {
+          dayEntry.squat.push(setData);
+        } else if (exerciseLower === 'deadlift') {
+          dayEntry.deadlift.push(setData);
+        } else {
+          // 💡 アシスタンスやカスタム種目は登録された名前のまま確実に配列へ格納
+          dayEntry.assistance.push({
+            id: log.id,
+            name: log.exercise,
+            weight: log.weight,
+            reps: log.reps,
+            notes: log.notes
+          });
+        }
       });
 
       const processedData = Array.from(groupedMap.values());
@@ -142,7 +151,6 @@ export default function HistoryPage() {
     if (!error) { setEditingItem(null); fetchLogs(); }
   };
 
-  // 💡 過去ログ追加の保存処理
   const handleAddRecord = async () => {
     if (!addingItem) return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -151,7 +159,6 @@ export default function HistoryPage() {
     const finalName = addingItem.isCustomMode ? addingItem.customExercise.trim() : addingItem.exercise;
     if (!finalName) return;
 
-    // 新規カスタム種目ならお気に入りリストへ自動追加
     if (addingItem.isCustomMode && !masterExercises.includes(finalName)) {
       await supabase.from("favorite_exercises").insert([{ user_id: session.user.id, name: finalName }]);
     }
@@ -175,11 +182,6 @@ export default function HistoryPage() {
     }
   };
 
-  const getTodayStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${(`00${d.getMonth()+1}`).slice(-2)}-{d.getDate().toString().padStart(2, '0')}`;
-  };
-
   const filteredSuggestions = masterExercises.filter((ex) =>
     ex.toLowerCase().includes(addingItem?.customExercise.toLowerCase() || "")
   );
@@ -187,7 +189,6 @@ export default function HistoryPage() {
   return (
     <main className="min-h-screen bg-gray-900 text-white relative p-4 pb-20">
       
-      {/* --- 編集モーダル --- */}
       {editingItem && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-gray-800 w-full max-w-md p-6 rounded-2xl border border-gray-600 shadow-2xl">
@@ -223,7 +224,6 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* --- 💡 過去ログ追加モーダル（アシスタンス画面の全デザイン＆ロジックを完全統合） --- */}
       {addingItem && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md">
           <div className="bg-gray-800/95 w-full max-w-md p-6 rounded-[32px] border border-gray-700 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
@@ -232,7 +232,6 @@ export default function HistoryPage() {
               ADD PAST RECORD
             </h3>
             
-            {/* 💡 日付選択エリア（追加機能） */}
             <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700/50">
               <p className="text-gray-500 text-[10px] mb-2 text-center font-black italic tracking-widest">DATE</p>
               <input 
@@ -243,7 +242,6 @@ export default function HistoryPage() {
               />
             </div>
 
-            {/* MENU SELECT（アシスタンス画面と完全同等） */}
             <div className="bg-gray-800/50 p-5 rounded-3xl border border-gray-700/50 shadow-xl relative">
               <p className="text-gray-500 text-[10px] mb-3 text-center font-black italic tracking-widest">MENU</p>
               {!addingItem.isCustomMode ? (
@@ -288,7 +286,6 @@ export default function HistoryPage() {
               </button>
             </div>
 
-            {/* WEIGHT: Orange Neon Glow */}
             <div className="bg-gray-800/80 p-6 rounded-[32px] border border-gray-700 shadow-xl relative">
               <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">WEIGHT (kg)</p>
               <div className="flex items-center justify-between gap-4">
@@ -306,7 +303,6 @@ export default function HistoryPage() {
               </div>
             </div>
 
-            {/* REPS: Amber/Yellow Neon Glow */}
             <div className="bg-gray-800/80 p-6 rounded-[32px] border border-gray-700 shadow-xl">
               <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">REPS</p>
               <div className="flex items-center justify-between gap-4">
@@ -318,7 +314,6 @@ export default function HistoryPage() {
               </div>
             </div>
 
-            {/* NOTES */}
             <div className="bg-gray-800/50 p-5 rounded-3xl border border-gray-700/50 shadow-xl">
               <p className="text-gray-500 text-[10px] mb-2 text-center font-black italic tracking-widest">NOTES (OPTIONAL)</p>
               <textarea 
@@ -330,7 +325,6 @@ export default function HistoryPage() {
               />
             </div>
 
-            {/* モーダル内ボタン */}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setAddingItem(null)} className="flex-1 py-4 bg-gray-700 text-gray-300 rounded-2xl font-bold">Cancel</button>
               <button onClick={handleAddRecord} className="flex-1 py-4 bg-white text-black font-black text-lg rounded-2xl hover:bg-gray-200 active:scale-95 shadow-xl transition-all">ADD 🚀</button>
@@ -339,7 +333,6 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* メイン画面 */}
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
           <Link href="/" className="text-gray-400 hover:text-white text-sm">← Back</Link>
