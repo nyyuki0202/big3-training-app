@@ -45,7 +45,7 @@ const calculateE1RM = (weight: number, reps: number) => {
 };
 
 export default function HistoryPage() {
-  const [allLogs, setAllLogs] = useState<DailyLog[]>([]);
+  const [displayedData, setDisplayedData] = useState<DailyLog[]>([]);
   const [loading, setLoading] = useState(true);
   
   // 現在のリアルタイムな年月（例: "2026/08"）
@@ -73,16 +73,27 @@ export default function HistoryPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const isFetched = useRef(false);
 
-  const fetchLogs = async () => {
+  // 選択された年月のデータだけをSupabaseから取得する
+  const fetchLogsForMonth = async (yearMonth: string) => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setLoading(false); return; }
+
+    // 例: "2026/08" -> 開始日 "2026-08-01T00:00:00", 終了日 "2026-09-01T00:00:00"
+    const [yStr, mStr] = yearMonth.split('/');
+    const year = Number(yStr);
+    const month = Number(mStr);
+
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 1).toISOString();
 
     const { data, error } = await supabase
       .from('workouts')
       .select('*')
       .eq('user_id', session.user.id)
-      .order('created_at', { ascending: true });
+      .gte('created_at', startDate)
+      .lt('created_at', endDate)
+      .order('created_at', { ascending: false }); // 新しい順
 
     if (!error && data) {
       const groupedMap = new Map<string, DailyLog>();
@@ -120,12 +131,16 @@ export default function HistoryPage() {
         }
       });
 
-      // 日付の降順（新しい順）に並び替える
       const processedData = Array.from(groupedMap.values()).sort((a, b) => b.date.localeCompare(a.date));
-      setAllLogs(processedData);
+      setDisplayedData(processedData);
     }
     setLoading(false);
   };
+
+  // 月が切り替わったとき、または初回ロード時にデータを再取得
+  useEffect(() => {
+    fetchLogsForMonth(targetYearMonth);
+  }, [targetYearMonth]);
 
   useEffect(() => {
     if (!isFetched.current) {
@@ -140,7 +155,6 @@ export default function HistoryPage() {
         }
       };
       fetchCustom();
-      fetchLogs();
       isFetched.current = true;
     }
   }, []);
@@ -149,13 +163,13 @@ export default function HistoryPage() {
     if (!editingItem) return;
     if (!confirm("本当にこの記録を削除しますか？")) return;
     const { error } = await supabase.from('workouts').delete().eq('id', editingItem.id);
-    if (!error) { setEditingItem(null); fetchLogs(); }
+    if (!error) { setEditingItem(null); fetchLogsForMonth(targetYearMonth); }
   };
 
   const handleUpdate = async () => {
     if (!editingItem) return;
     const { error } = await supabase.from('workouts').update({ weight: editingItem.weight, reps: editingItem.reps, notes: editingItem.notes }).eq('id', editingItem.id);
-    if (!error) { setEditingItem(null); fetchLogs(); }
+    if (!error) { setEditingItem(null); fetchLogsForMonth(targetYearMonth); }
   };
 
   const handleAddRecord = async () => {
@@ -183,14 +197,14 @@ export default function HistoryPage() {
 
     if (!error) {
       setAddingItem(null);
-      fetchLogs();
+      // 追加した日付の年月に切り替えて再取得する
+      const addedYM = `${targetDateObj.getFullYear()}/${(`00${targetDateObj.getMonth() + 1}`).slice(-2)}`;
+      setTargetYearMonth(addedYM);
+      fetchLogsForMonth(addedYM);
     } else {
       alert("追加に失敗しました...");
     }
   };
-
-  // 選択されている年月のデータだけに絞り込む
-  const displayedData = allLogs.filter((day) => day.date.startsWith(targetYearMonth));
 
   // 前後の月を計算するロジック
   const [yStr, mStr] = targetYearMonth.split('/');
@@ -202,7 +216,6 @@ export default function HistoryPage() {
   const prevYearMonth = `${prevDateObj.getFullYear()}/${(`00${prevDateObj.getMonth() + 1}`).slice(-2)}`;
   const nextYearMonth = `${nextDateObj.getFullYear()}/${(`00${nextDateObj.getMonth() + 1}`).slice(-2)}`;
 
-  // 未来（今月より後）には行けないようにガード
   const canGoNext = nextYearMonth <= currentRealYearMonth;
 
   const scrollToTop = () => {
