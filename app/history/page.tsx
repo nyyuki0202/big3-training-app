@@ -349,7 +349,7 @@ export default function HistoryPage() {
             <span>{prevDateObj.getMonth() + 1}月</span>
           </button>
 
-          <h1 className="text-xl font-black text-orange-400 tracking-wider">
+          <h1 className="text-xl font-black text-white-400 tracking-wider">
             {targetYearMonth.replace('/', '年')}月
           </h1>
 
@@ -447,14 +447,6 @@ export default function HistoryPage() {
                 )}
               </div>
             ))}
-
-            {/* 一番下における過去月へのショートカットボタン */}
-            <button 
-              onClick={() => { setTargetYearMonth(prevYearMonth); scrollToTop(); }}
-              className="w-full py-4 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-2xl border border-gray-700 shadow-lg text-sm transition-all mt-6"
-            >
-              📅 {prevDateObj.getMonth() + 1}月の記録を見る →
-            </button>
           </div>
         )}
       </div>
