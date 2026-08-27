@@ -93,7 +93,7 @@ export default function HistoryPage() {
       .eq('user_id', session.user.id)
       .gte('created_at', startDate)
       .lt('created_at', endDate)
-      .order('created_at', { ascending: false }); // 新しい順
+      .order('created_at', { ascending: true }); // 古い順
 
     if (!error && data) {
       const groupedMap = new Map<string, DailyLog>();
