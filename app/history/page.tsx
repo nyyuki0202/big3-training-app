@@ -90,7 +90,7 @@ export default function HistoryPage() {
       data.forEach((log) => {
         const dateObj = new Date(log.created_at);
         const y = dateObj.getFullYear();
-        const m = (`00${dateObj.getMonth()+1}`).slice(-2);
+        const m = (`00${dateObj.getMonth() + 1}`).slice(-2);
         const d = (`00${dateObj.getDate()}`).slice(-2);
         const dateStr = `${y}/${m}/${d}`;
         
@@ -120,7 +120,8 @@ export default function HistoryPage() {
         }
       });
 
-      const processedData = Array.from(groupedMap.values()).reverse();
+      // 日付の降順（新しい順）に並び替える
+      const processedData = Array.from(groupedMap.values()).sort((a, b) => b.date.localeCompare(a.date));
       setAllLogs(processedData);
     }
     setLoading(false);
@@ -191,7 +192,7 @@ export default function HistoryPage() {
   // 選択されている年月のデータだけに絞り込む
   const displayedData = allLogs.filter((day) => day.date.startsWith(targetYearMonth));
 
-  // 前後の月を計算するためのロジック（YYYY/MM の文字列からDateオブジェクトを生成して計算）
+  // 前後の月を計算するロジック
   const [yStr, mStr] = targetYearMonth.split('/');
   const currentDateObj = new Date(Number(yStr), Number(mStr) - 1, 1);
   
@@ -325,7 +326,7 @@ export default function HistoryPage() {
           </button>
         </div>
 
-        {/* ヘッダー部分：現在の表示月と、左右の月移動ボタン（手書きイラストのイメージ） */}
+        {/* 月切り替えヘッダー */}
         <div className="flex justify-between items-center mb-6 bg-gray-800/60 p-4 rounded-2xl border border-gray-700/60 shadow-lg">
           <button 
             onClick={() => { setTargetYearMonth(prevYearMonth); scrollToTop(); }}
