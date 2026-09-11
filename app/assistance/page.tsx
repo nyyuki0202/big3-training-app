@@ -58,22 +58,38 @@ export default function AssistancePage() {
     }
   }, []);
 
-  // 種目変更時に前回値を自動取得 (元の仕様を維持)
+  // 種目変更時に前回値を自動取得 (大文字小文字や空白の揺れを吸収するように修正)
   useEffect(() => {
     const fetchLastRecord = async () => {
       const selected = isCustomMode ? customExercise : exercise;
       if (!selected) return;
       const { data: { session } } = await supabase.auth.getSession();
-      const { data } = await supabase.from('workouts').select('weight, reps')
-        .eq('exercise', selected).eq('user_id', session?.user.id)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (data) { setWeight(data.weight); setReps(data.reps); }
+      
+      // 💡 入力された種目名も検索時に同様に正規化してマッチさせる
+      const normalizedSelected = selected.toLowerCase().trim().replace(/\s+/g, ' ');
+
+      const { data } = await supabase.from('workouts').select('weight, reps, exercise')
+        .eq('user_id', session?.user.id)
+        .order('created_at', { ascending: false });
+
+      if (data && data.length > 0) {
+        // 💡 取得した全履歴の中から、正規化した名前が一致する直近のものを手動で探す（あいまいさや揺れを完全にカバー）
+        const matched = data.find(item => {
+          const dbExerciseNormalized = (item.exercise || "").toLowerCase().trim().replace(/\s+/g, ' ');
+          return dbExerciseNormalized === normalizedSelected;
+        });
+
+        if (matched) {
+          setWeight(matched.weight);
+          setReps(matched.reps);
+        }
+      }
       setIsLoading(false);
     };
     fetchLastRecord();
   }, [exercise, isCustomMode, customExercise]);
 
-const handleRecord = async () => {
+  const handleRecord = async () => {
     if (isSubmitting) return;
     const finalName = isCustomMode ? customExercise.trim() : exercise;
     if (!finalName) return;
@@ -123,7 +139,6 @@ const handleRecord = async () => {
           <p className="text-gray-500 text-[10px] mb-4 text-center font-black italic tracking-widest">MENU</p>
           {!isCustomMode ? (
             <select value={exercise} onChange={(e) => setExercise(e.target.value)} className="w-full bg-gray-900 text-white p-4 rounded-xl border border-gray-700 font-bold appearance-none">
-              {/* 💡 初期マスター配列（マージされたabc順）から選択可能に */}
               {masterExercises.map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
             </select>
           ) : (
@@ -137,7 +152,6 @@ const handleRecord = async () => {
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
                 className="w-full bg-gray-900 text-white p-4 rounded-xl border border-orange-500 outline-none font-bold" 
               />
-              {/* 💡 カスタム入力時のabc順サジェストウィンドウ */}
               {showSuggestions && filteredSuggestions.length > 0 && (
                 <div className="absolute z-50 w-full mt-2 bg-gray-900 border border-gray-700 rounded-xl max-h-40 overflow-y-auto shadow-2xl">
                   {filteredSuggestions.map((suggestion) => (
@@ -188,7 +202,7 @@ const handleRecord = async () => {
           </div>
         </div>
 
-        {/* 💡 NOTES: 元のデザインの雰囲気に完全に調和させた備考カード */}
+        {/* NOTES */}
         <div className="bg-gray-800/50 p-6 rounded-3xl border border-gray-700/50 shadow-xl">
           <p className="text-gray-500 text-[10px] mb-3 text-center font-black italic tracking-widest">NOTES (OPTIONAL)</p>
           <textarea 
@@ -200,7 +214,7 @@ const handleRecord = async () => {
           />
         </div>
 
-        {/* RECORD SET BUTTON (完全復元) */}
+        {/* RECORD SET BUTTON */}
         <button onClick={handleRecord} disabled={isSubmitting} className="w-full py-6 bg-white text-black font-black text-3xl rounded-3xl hover:bg-gray-200 active:scale-95 shadow-xl transition-all">
           {isSubmitting ? "SAVING..." : "RECORD SET"}
         </button>
