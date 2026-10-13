@@ -10,7 +10,7 @@ export default function OneRepMaxConverter() {
 
   const calculate1RM = () => {
     // RPEから残りの余力（RIR）を算出して実効レップ数を補正
-    const effectiveRpe = rpe ? Math.min(10, Math.max(6, rpe)) : 10;
+    const effectiveRpe = rpe ? Math.min(10, Math.max(5, rpe)) : 10;
     const rir = 10 - effectiveRpe;
     const adjustedReps = reps + rir;
 
@@ -54,7 +54,7 @@ export default function OneRepMaxConverter() {
             <label className="text-xs text-gray-400 block mb-2">RPE</label>
             <div className="flex items-center justify-between gap-1">
               <button 
-                onClick={() => setRpe(r => Math.max(1, Number((r - 0.5).toFixed(1))))} 
+                onClick={() => setRpe(r => Math.max(5, Number((r - 0.5).toFixed(1))))} 
                 className="w-10 h-10 bg-gray-700 rounded-full font-bold hover:bg-gray-600 text-sm"
               >
                 -
