@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 const DEFAULT_EXERCISES = [
   "Face Pull", "Iso-Lateral Row", "Hack Squat", "Narrow Press", "Smith Narrow Press",
   "Smith Squat", "Smith Shoulder Press", "Smith Incline Press", "Dumbbell Preacher Curl",
-  "One-hand Dumbbell Row", "One-hand Arm Curl", "Barbbell Curl", "Dumbbell Press",
+  "One-hand Dumbbell Row", "One-hand Arm Curl", "Over-Head Press","Barbbell Curl", "Dumbbell Press",
   "Incline Dumbbell Press","Incline Bench Press", "Incline Dumbbell Curl", "Lying Triceps Extension",
   "Lateral Raise", "Chin-Up", "Dips", "Lat Pulldown","Seated Row","Shoulder Press", 
   "Leg Extension", "Bulgarian Squat", "Leg Curl", "Leg Press", "Romanian Deadlift",

@@ -10,7 +10,6 @@ export default function OneRepMaxConverter() {
 
   const calculate1RM = () => {
     // RPEから残りの余力（RIR）を算出して実効レップ数を補正
-    // RPEが未指定や10ならそのまま、7〜9.5の場合は余力をレップ数にプラスする
     const effectiveRpe = rpe ? Math.min(10, Math.max(6, rpe)) : 10;
     const rir = 10 - effectiveRpe;
     const adjustedReps = reps + rir;
@@ -28,7 +27,7 @@ export default function OneRepMaxConverter() {
 
         <h1 className="text-2xl font-bold text-center text-purple-400 uppercase tracking-wider mb-2">1RM CONVERTER</h1>
 
-        {/* 💡 いつもの重量設定カード（青ベース） */}
+        {/* 重量設定カード（青ベース） */}
         <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center">
           <label className="text-xs text-gray-400 block mb-2">WEIGHT (kg)</label>
           <div className="flex items-center justify-between">
@@ -38,7 +37,7 @@ export default function OneRepMaxConverter() {
           </div>
         </div>
 
-        {/* 💡 REPS & RPE を並べたレイアウトカード */}
+        {/* REPS & RPE を並べたレイアウトカード */}
         <div className="grid grid-cols-2 gap-4">
           {/* REPS（紫ベース） */}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center flex flex-col justify-between">
@@ -50,28 +49,30 @@ export default function OneRepMaxConverter() {
             </div>
           </div>
 
-          {/* RPE（オレンジベースでアクセントに） */}
+          {/* RPE（ボタンによる0.5刻み増減対応 */}
           <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 text-center flex flex-col justify-between">
             <label className="text-xs text-gray-400 block mb-2">RPE</label>
-            <div className="flex items-center justify-center">
-              <select 
-                value={rpe} 
-                onChange={(e) => setRpe(Number(e.target.value))}
-                className="w-full bg-gray-900 text-orange-400 text-xl font-black text-center py-2.5 rounded-xl border border-gray-700 outline-none appearance-none cursor-pointer"
+            <div className="flex items-center justify-between gap-1">
+              <button 
+                onClick={() => setRpe(r => Math.max(1, Number((r - 0.5).toFixed(1))))} 
+                className="w-10 h-10 bg-gray-700 rounded-full font-bold hover:bg-gray-600 text-sm"
               >
-                <option value={10}>10</option>
-                <option value={9.5}>9.5</option>
-                <option value={9}>9</option>
-                <option value={8.5}>8.5</option>
-                <option value={8}>8</option>
-                <option value={7.5}>7.5</option>
-                <option value={7}>7</option>
-              </select>
+                -
+              </button>
+              <div className="flex-1 text-white-400 text-xl font-black text-center tracking-tighter">
+                {rpe}
+              </div>
+              <button 
+                onClick={() => setRpe(r => Math.min(10, Number((r + 0.5).toFixed(1))))} 
+                className="w-10 h-10 bg-orange-600 text-white rounded-full font-bold hover:bg-orange-500 text-sm"
+              >
+                +
+              </button>
             </div>
           </div>
         </div>
 
-        {/* 💡 換算結果：大きめに強調表示 */}
+        {/* 換算結果：大きめに強調表示 */}
         <div className="mt-2 p-6 bg-gray-800/40 rounded-2xl border border-gray-800 text-center shadow-inner">
           <label className="text-xs text-green-400 font-bold block mb-2 uppercase tracking-widest">ESTIMATED 1RM</label>
           <div className="flex items-baseline justify-center gap-2">
